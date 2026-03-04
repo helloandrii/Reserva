@@ -1,8 +1,7 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
 
@@ -10,25 +9,20 @@ import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { ToastProvider } from '@/src/components/Toast';
 
-const ONBOARDING_KEY = 'reserva_onboarding_complete';
-
 // ─── Navigation guard ─────────────────────────────────────────────────────────
 
+// TODO: set to false before release
+const DEV_ALWAYS_SHOW_ONBOARDING = true;
+
 function NavigationGuard() {
-  const { user, loading } = useAuth();
+  const { loading, onboardingComplete, onboardingChecked } = useAuth();
   const router = useRouter();
   const segments = useSegments();
-  const [onboardingChecked, setOnboardingChecked] = useState(false);
-  const [onboardingComplete, setOnboardingComplete] = useState(false);
 
   useEffect(() => {
-    AsyncStorage.getItem(ONBOARDING_KEY).then((val) => {
-      setOnboardingComplete(val === 'true');
-      setOnboardingChecked(true);
-    });
-  }, []);
-
-  useEffect(() => {
+    // In dev mode: treat onboarding as not complete until the user explicitly
+    // presses Skip or signs in (which calls completeOnboarding() → updates state).
+    // onboardingChecked prevents acting before AsyncStorage has been read.
     if (loading || !onboardingChecked) return;
 
     const inOnboarding = segments[0] === 'onboarding';
@@ -37,11 +31,15 @@ function NavigationGuard() {
 
     if (inLegal) return;
 
-    if (!onboardingComplete) {
-      // First launch — keep within onboarding flow
+    const passedOnboarding = DEV_ALWAYS_SHOW_ONBOARDING
+      ? onboardingComplete   // in dev mode: only pass when user explicitly skipped/signed in
+      : onboardingComplete;  // in prod: same — reads from AsyncStorage via AuthContext
+
+    if (!passedOnboarding) {
+      // Keep user inside onboarding flow
       if (!inOnboarding) router.replace('/onboarding' as any);
     } else {
-      // Onboarding done — go to tabs (signed in or guest)
+      // Onboarding done — let them into the app
       if (!inTabs) router.replace('/(tabs)');
     }
   }, [loading, onboardingChecked, onboardingComplete, segments]);

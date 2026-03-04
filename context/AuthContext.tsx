@@ -27,6 +27,8 @@ interface AuthContextValue {
     user: User | null;
     profile: UserProfile | null;
     loading: boolean;
+    onboardingComplete: boolean;
+    onboardingChecked: boolean;
     promptGoogleSignIn: () => Promise<void>;
     signOut: () => Promise<void>;
     completeOnboarding: () => Promise<void>;
@@ -48,6 +50,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState(true);
+    const [onboardingComplete, setOnboardingComplete] = useState(false);
+    const [onboardingChecked, setOnboardingChecked] = useState(false);
+
+    // Load onboarding flag from AsyncStorage on mount
+    useEffect(() => {
+        const DEV_ALWAYS_SHOW_ONBOARDING = true; // TODO: set false before release
+        (async () => {
+            if (DEV_ALWAYS_SHOW_ONBOARDING) {
+                // Clear flag each session so onboarding always shows (dev mode)
+                await AsyncStorage.removeItem(ONBOARDING_KEY);
+                setOnboardingComplete(false);
+                setOnboardingChecked(true);
+                return;
+            }
+            const val = await AsyncStorage.getItem(ONBOARDING_KEY);
+            setOnboardingComplete(val === 'true');
+            setOnboardingChecked(true);
+        })();
+    }, []);
 
     const [, response, promptAsync] = Google.useAuthRequest({
         webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
@@ -150,10 +171,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const completeOnboarding = async () => {
         await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
+        setOnboardingComplete(true); // update state immediately so guard reacts
     };
 
     return (
-        <AuthContext.Provider value={{ user, profile, loading, promptGoogleSignIn, signOut, completeOnboarding }}>
+        <AuthContext.Provider value={{ user, profile, loading, onboardingComplete, onboardingChecked, promptGoogleSignIn, signOut, completeOnboarding }}>
             {children}
         </AuthContext.Provider>
     );

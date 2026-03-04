@@ -17,9 +17,9 @@ export default function TabLayout() {
         <Label>Map</Label>
         <Icon sf="map" />
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="reservation">
-        <Label>Reservation</Label>
-        <Icon sf="calendar" />
+      <NativeTabs.Trigger name="bookings">
+        <Label>Bookings</Label>
+        <Icon sf="calendar.badge.clock" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="profile">
         <Label>Profile</Label>
@@ -28,4 +28,3 @@ export default function TabLayout() {
     </NativeTabs>
   );
 }
-

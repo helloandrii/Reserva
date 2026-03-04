@@ -140,6 +140,16 @@ export default function ProfileScreen() {
                             )}
                         </TouchableOpacity>
 
+                        {/* Apple Sign-In — UI only, implementation coming */}
+                        <TouchableOpacity
+                            style={styles.appleButton}
+                            activeOpacity={0.82}
+                            disabled
+                        >
+                            <Ionicons name="logo-apple" size={20} color="#fff" />
+                            <Text style={styles.appleButtonText}>Continue with Apple</Text>
+                        </TouchableOpacity>
+
                         <Text style={styles.termsText}>
                             By continuing, you agree to our{' '}
                             <Text style={styles.termsLink}>Terms of Service</Text>
@@ -382,6 +392,22 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
         color: '#111',
+    },
+    appleButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 10,
+        height: 58,
+        width: '100%',
+        borderRadius: 16,
+        backgroundColor: '#000',
+        opacity: 0.9,
+    },
+    appleButtonText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#fff',
     },
     termsText: {
         fontSize: 12,

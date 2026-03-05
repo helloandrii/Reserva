@@ -1,18 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
-    FlatList,
     ScrollView,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
-    View,
+    View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GlassSearchBar } from '@/components/GlassSearchBar';
 import { Palette, Radius, Spacing, Typography } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useThemeColors } from '@/hooks/useThemeColors';
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
@@ -60,25 +61,47 @@ const TRENDING_SERVICES: TrendingService[] = [
 
 // ─── Category Card ─────────────────────────────────────────────────────────────
 
-function CategoryCard({ item }: { item: Category }) {
+function CategoryCard({ item, onPress }: { item: Category; onPress: () => void }) {
     const C = useThemeColors();
+    const isDark = useColorScheme() === 'dark';
     return (
-        <TouchableOpacity style={[styles.catCard, { backgroundColor: item.color }]} activeOpacity={0.8}>
+        <TouchableOpacity
+            style={[styles.catCard, {
+                backgroundColor: C.surface,
+                shadowColor: isDark ? '#000' : item.color,
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: isDark ? 0.4 : 0.3,
+                shadowRadius: 8,
+                elevation: isDark ? 0 : 3,
+            }]}
+            activeOpacity={0.8}
+            onPress={onPress}
+        >
             <View style={styles.catIconWrap}>
                 <Ionicons name={item.icon} size={24} color={Palette.accentDark} />
             </View>
-            <Text style={[styles.catLabel, { color: '#2D2D3E' }]} numberOfLines={2}>{item.label}</Text>
+            <Text style={[styles.catLabel, { color: C.text }]} numberOfLines={2}>{item.label}</Text>
         </TouchableOpacity>
     );
 }
 
 // ─── Trending Card ─────────────────────────────────────────────────────────────
 
-function TrendingCard({ item }: { item: TrendingService }) {
+function TrendingCard({ item, onPress }: { item: TrendingService; onPress: () => void }) {
     const C = useThemeColors();
+    const isDark = useColorScheme() === 'dark';
     return (
-        <TouchableOpacity style={[styles.trendCard, { backgroundColor: C.surface }]} activeOpacity={0.8}>
-            <View style={[styles.trendIconWrap, { backgroundColor: item.accent + '30' }]}>
+        <TouchableOpacity
+            style={[styles.trendCard, {
+                backgroundColor: C.surface,
+                shadowColor: isDark ? '#000' : '#B8AFE6',
+                shadowOpacity: isDark ? 0.3 : 0.15,
+                elevation: isDark ? 0 : 4,
+            }]}
+            activeOpacity={0.8}
+            onPress={onPress}
+        >
+            <View style={[styles.trendIconWrap, { backgroundColor: item.accent + (isDark ? '40' : '30') }]}>
                 <Ionicons name={item.icon} size={28} color={item.accent} />
             </View>
             <Text style={[styles.trendTitle, { color: C.text }]} numberOfLines={1}>{item.title}</Text>
@@ -97,6 +120,7 @@ function TrendingCard({ item }: { item: TrendingService }) {
 export default function SearchScreen() {
     const insets = useSafeAreaInsets();
     const C = useThemeColors();
+    const router = useRouter();
     const inputRef = useRef<TextInput>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [isSearchActive, setIsSearchActive] = useState(false);
@@ -114,6 +138,10 @@ export default function SearchScreen() {
                     onChangeText={setSearchQuery}
                     onBlur={() => { if (!searchQuery) setIsSearchActive(false); }}
                     onBack={() => { setIsSearchActive(false); setSearchQuery(''); }}
+                    onMicPress={() => {
+                        setIsSearchActive(true);
+                        setTimeout(() => inputRef.current?.focus(), 80);
+                    }}
                 />
             </View>
 
@@ -127,26 +155,26 @@ export default function SearchScreen() {
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
                         <Text style={[styles.sectionTitle, { color: C.text }]}>Categories</Text>
-                        <TouchableOpacity>
+                        <TouchableOpacity onPress={() => router.push('/filter-search?section=categories')}>
                             <Text style={styles.seeAll}>See all</Text>
                         </TouchableOpacity>
                     </View>
-                    <FlatList
-                        data={CATEGORIES}
-                        renderItem={({ item }) => <CategoryCard item={item} />}
-                        keyExtractor={(item) => item.label}
-                        numColumns={4}
-                        scrollEnabled={false}
-                        columnWrapperStyle={styles.catRow}
-                        contentContainerStyle={styles.catGrid}
-                    />
+                    <View style={styles.catGrid}>
+                        {CATEGORIES.map((item) => (
+                            <CategoryCard
+                                key={item.label}
+                                item={item}
+                                onPress={() => router.push(`/filter-search?category=${encodeURIComponent(item.label)}`)}
+                            />
+                        ))}
+                    </View>
                 </View>
 
                 {/* ── Trending Services ── */}
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
                         <Text style={[styles.sectionTitle, { color: C.text }]}>Trending</Text>
-                        <TouchableOpacity>
+                        <TouchableOpacity onPress={() => router.push('/filter-search?section=trending')}>
                             <Text style={styles.seeAll}>See all</Text>
                         </TouchableOpacity>
                     </View>
@@ -156,7 +184,11 @@ export default function SearchScreen() {
                         contentContainerStyle={styles.trendRow}
                     >
                         {TRENDING_SERVICES.map((item) => (
-                            <TrendingCard key={item.id} item={item} />
+                            <TrendingCard
+                                key={item.id}
+                                item={item}
+                                onPress={() => router.push(`/filter-search?service=${encodeURIComponent(item.id)}`)}
+                            />
                         ))}
                     </ScrollView>
                 </View>
@@ -204,34 +236,31 @@ const styles = StyleSheet.create({
 
     // ── Category grid
     catGrid: {
-        gap: Spacing.sm,
-    },
-    catRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
         gap: Spacing.sm,
         justifyContent: 'space-between',
+        paddingVertical: 10,  // Prevents shadow clipping
     },
     catCard: {
-        flex: 1,
+        width: '23%',
         aspectRatio: 1,
         borderRadius: Radius.lg,
         alignItems: 'center',
         justifyContent: 'center',
         gap: Spacing.xs,
         padding: Spacing.sm,
-        maxWidth: '23%',
     },
     catIconWrap: {
         width: 44,
         height: 44,
         borderRadius: Radius.md,
-        backgroundColor: 'rgba(255,255,255,0.6)',
         alignItems: 'center',
         justifyContent: 'center',
     },
     catLabel: {
         fontSize: 11,
         fontWeight: Typography.weight.semibold,
-        color: '#2D2D3E',
         textAlign: 'center',
         lineHeight: 14,
     },
@@ -247,11 +276,8 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFFFFF',
         padding: Spacing.md,
         gap: Spacing.xs,
-        shadowColor: '#B8AFE6',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
         shadowRadius: 12,
-        elevation: 4,
     },
     trendIconWrap: {
         width: 52,

@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
@@ -307,6 +308,7 @@ function EmptyState({ tab }: { tab: 'upcoming' | 'past' }) {
 export default function BookingsScreen() {
     const insets = useSafeAreaInsets();
     const C = useThemeColors();
+    const router = useRouter();
     const { user } = useAuth();
     const { bookings, activeTab, loadingState, fetchBookings, cancelBooking, setActiveTab } = useBookingsStore();
 
@@ -328,6 +330,13 @@ export default function BookingsScreen() {
             {/* Header */}
             <View style={styles.header}>
                 <Text style={[styles.headerTitle, { color: C.text }]}>{Strings.bookings.title}</Text>
+                <TouchableOpacity
+                    style={[styles.settingsBtn, { backgroundColor: C.backgroundSecondary }]}
+                    onPress={() => router.push('/settings')}
+                    activeOpacity={0.7}
+                >
+                    <Ionicons name="settings-outline" size={20} color={C.textSecondary} />
+                </TouchableOpacity>
             </View>
 
             {/* Profile widget */}
@@ -387,9 +396,19 @@ const styles = StyleSheet.create({
     container: { flex: 1 },
 
     header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
         paddingHorizontal: Spacing['2xl'],
         paddingTop: Spacing.md,
         paddingBottom: Spacing.sm,
+    },
+    settingsBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: Radius.full,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     headerTitle: {
         fontSize: Typography.size.display,

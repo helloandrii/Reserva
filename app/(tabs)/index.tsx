@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import { GlassView } from 'expo-glass-effect';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
+    Platform,
     ScrollView,
     StyleSheet,
     TextInput,
@@ -15,7 +17,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GlassChip } from '@/components/GlassChip';
 import { GlassSearchBar } from '@/components/GlassSearchBar';
 import { Strings } from '@/constants/strings';
-import { Palette, Radius, Spacing } from '@/constants/theme';
+import { Palette, Spacing } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 // ─── Category icon mapping ────────────────────────────────────────────────────
 
@@ -48,6 +52,7 @@ export default function MapScreen() {
     const [searchQuery, setSearchQuery] = useState('');
     const [isSearchActive, setIsSearchActive] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+    const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
 
     // Request location
     useEffect(() => {
@@ -59,6 +64,9 @@ export default function MapScreen() {
             setUserLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
         })();
     }, []);
+
+    const C = useThemeColors();
+    const isDark = useColorScheme() === 'dark';
 
     const mapRegion = userLocation
         ? { ...userLocation, latitudeDelta: 0.05, longitudeDelta: 0.05 }
@@ -88,7 +96,7 @@ export default function MapScreen() {
                 showsUserLocation={hasLocation === true}
                 showsMyLocationButton={false}
                 region={mapRegion}
-                mapType="standard"
+                mapType={mapType}
             />
 
             {/* ── Top overlay: search + categories ── */}
@@ -104,6 +112,10 @@ export default function MapScreen() {
                     onChangeText={setSearchQuery}
                     onBlur={handleSearchBlur}
                     onBack={() => { setIsSearchActive(false); setSearchQuery(''); }}
+                    onMicPress={() => {
+                        setIsSearchActive(true);
+                        setTimeout(() => inputRef.current?.focus(), 80);
+                    }}
                 />
 
                 {/* Glass Category chips — hidden when search is active */}
@@ -136,15 +148,39 @@ export default function MapScreen() {
                 )}
             </View>
 
-            {/* ── Center-on-location FAB ── */}
+            {/* ── FAB Group (Layers & Location) ── */}
             {!isSearchActive && (
-                <TouchableOpacity
-                    style={[styles.locationFab, { bottom: insets.bottom + 100 }]}
-                    onPress={handleCenterOnUser}
-                    activeOpacity={0.82}
-                >
-                    <Ionicons name="navigate" size={22} color={Palette.accent} />
-                </TouchableOpacity>
+                <View style={[styles.locationFabWrap, { bottom: insets.bottom + 100 }]}>
+                    {Platform.OS === 'ios' ? (
+                        <GlassView style={styles.fabGlass} glassEffectStyle="regular">
+                            <TouchableOpacity
+                                style={styles.fabInner}
+                                onPress={() => setMapType(p => p === 'standard' ? 'satellite' : 'standard')}
+                                activeOpacity={0.7}
+                            >
+                                <Ionicons name="layers" size={20} color={mapType === 'satellite' ? Palette.accent : C.textSecondary} />
+                            </TouchableOpacity>
+                            <View style={[styles.fabDivider, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]} />
+                            <TouchableOpacity style={styles.fabInner} onPress={handleCenterOnUser} activeOpacity={0.7}>
+                                <Ionicons name="navigate" size={20} color={Palette.accent} />
+                            </TouchableOpacity>
+                        </GlassView>
+                    ) : (
+                        <View style={[styles.fabFallback, { backgroundColor: isDark ? 'rgba(40,40,45,0.92)' : 'rgba(255,255,255,0.92)' }]}>
+                            <TouchableOpacity
+                                style={styles.fabInner}
+                                onPress={() => setMapType(p => p === 'standard' ? 'satellite' : 'standard')}
+                                activeOpacity={0.7}
+                            >
+                                <Ionicons name="layers" size={20} color={mapType === 'satellite' ? Palette.accent : C.textSecondary} />
+                            </TouchableOpacity>
+                            <View style={[styles.fabDivider, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]} />
+                            <TouchableOpacity style={styles.fabInner} onPress={handleCenterOnUser} activeOpacity={0.7}>
+                                <Ionicons name="navigate" size={20} color={Palette.accent} />
+                            </TouchableOpacity>
+                        </View>
+                    )}
+                </View>
             )}
         </View>
     );
@@ -171,20 +207,33 @@ const styles = StyleSheet.create({
         paddingVertical: 2,
     },
 
-    // ── Location FAB
-    locationFab: {
+    // ── FAB Group
+    locationFabWrap: {
         position: 'absolute',
         right: Spacing.lg,
-        width: 48,
-        height: 48,
-        borderRadius: Radius.full,
-        backgroundColor: 'rgba(255,255,255,0.92)',
-        alignItems: 'center',
-        justifyContent: 'center',
+        width: 44,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.15,
         shadowRadius: 12,
         elevation: 6,
+    },
+    fabGlass: {
+        borderRadius: 22,
+        overflow: 'hidden',
+    },
+    fabFallback: {
+        borderRadius: 22,
+        overflow: 'hidden',
+    },
+    fabInner: {
+        width: 44,
+        height: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    fabDivider: {
+        height: 1,
+        width: '100%',
     },
 });

@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { GlassView } from 'expo-glass-effect';
-import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Animated, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-import { Radius, Spacing, Typography } from '@/constants/theme';
+import { Palette, Radius, Spacing, Typography } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 interface GlassSearchBarProps {
     value: string;
@@ -13,6 +15,7 @@ interface GlassSearchBarProps {
     onBack?: () => void;
     onBlur?: () => void;
     inputRef?: React.RefObject<TextInput | null>;
+    onMicPress?: () => void;
 }
 
 export function GlassSearchBar({
@@ -24,17 +27,49 @@ export function GlassSearchBar({
     onBack,
     onBlur,
     inputRef,
+    onMicPress,
 }: GlassSearchBarProps) {
+    const scheme = useColorScheme() ?? 'light';
+    const isDark = scheme === 'dark';
+
+    const shineAnim = useRef(new Animated.Value(0.4)).current;
+
+    useEffect(() => {
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(shineAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
+                Animated.timing(shineAnim, { toValue: 0.4, duration: 1000, useNativeDriver: true }),
+            ])
+        ).start();
+    }, [shineAnim]);
+
+    // Adaptive colours
+    const iconColor = isDark ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.70)';
+    const placeholderColor = isDark ? 'rgba(255,255,255,0.40)' : 'rgba(0,0,0,0.35)';
+    const inputColor = isDark ? 'rgba(255,255,255,0.90)' : 'rgba(0,0,0,0.85)';
+    const placeholderText = isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.38)';
+
+    const handleMicPress = () => {
+        // Open OS keyboard (which has built-in mic dictation) and activate search
+        if (onMicPress) {
+            onMicPress();
+        } else if (onPress) {
+            onPress();
+            // Focus the input after a tick so it becomes active
+            setTimeout(() => inputRef?.current?.focus(), 50);
+        }
+    };
+
     const inner = (
         <View style={styles.row}>
             {/* Left: back btn or logo */}
             {active ? (
                 <TouchableOpacity style={styles.iconBtn} onPress={onBack}>
-                    <Ionicons name="chevron-back" size={22} color="rgba(0,0,0,0.7)" />
+                    <Ionicons name="chevron-back" size={22} color={iconColor} />
                 </TouchableOpacity>
             ) : (
                 <View style={styles.logoBox}>
-                    <Ionicons name="calendar" size={17} color="rgba(0,0,0,0.7)" />
+                    <Text style={[styles.staticR, { color: Palette.accent }]}>R</Text>
                 </View>
             )}
 
@@ -47,25 +82,26 @@ export function GlassSearchBar({
                 {active ? (
                     <TextInput
                         ref={inputRef}
-                        style={styles.input}
+                        style={[styles.input, { color: inputColor }]}
                         placeholder={placeholder}
-                        placeholderTextColor="rgba(0,0,0,0.35)"
+                        placeholderTextColor={placeholderColor}
                         value={value}
                         onChangeText={onChangeText}
                         onBlur={onBlur}
                         returnKeyType="search"
                         autoFocus
                         autoCorrect={false}
+                        keyboardAppearance={isDark ? 'dark' : 'light'}
                     />
                 ) : (
-                    <Text style={styles.placeholder}>{placeholder}</Text>
+                    <Text style={[styles.placeholder, { color: placeholderText }]}>{placeholder}</Text>
                 )}
             </TouchableOpacity>
 
             {/* Right: mic */}
             {!active && (
-                <TouchableOpacity style={styles.iconBtn}>
-                    <Ionicons name="mic" size={20} color="rgba(0,0,0,0.6)" />
+                <TouchableOpacity style={styles.iconBtn} onPress={handleMicPress}>
+                    <Ionicons name="mic" size={20} color={iconColor} />
                 </TouchableOpacity>
             )}
         </View>
@@ -79,7 +115,11 @@ export function GlassSearchBar({
         );
     }
 
-    return <View style={styles.fallback}>{inner}</View>;
+    return (
+        <View style={[styles.fallback, isDark && styles.fallbackDark]}>
+            {inner}
+        </View>
+    );
 }
 
 const styles = StyleSheet.create({
@@ -98,6 +138,9 @@ const styles = StyleSheet.create({
             android: { elevation: 6 },
         }),
     },
+    fallbackDark: {
+        backgroundColor: 'rgba(40,40,45,0.92)',
+    },
     row: {
         flex: 1,
         flexDirection: 'row',
@@ -110,9 +153,18 @@ const styles = StyleSheet.create({
         width: 34,
         height: 34,
         borderRadius: Radius.full,
-        backgroundColor: 'rgba(255,255,255,0.45)',
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    staticR: {
+        color: Palette.accent,
+        fontSize: 22,
+        fontWeight: '900',
+        paddingHorizontal: 12, // More padding on bottom to offset Android/iOS font baseline
+        textAlign: 'center',
+        textShadowColor: Palette.accent,
+        textShadowOffset: { width: 0, height: 0 },
+        textShadowRadius: 10,
     },
     iconBtn: {
         width: 34,
@@ -128,11 +180,9 @@ const styles = StyleSheet.create({
     },
     placeholder: {
         fontSize: Typography.size.md,
-        color: 'rgba(0,0,0,0.38)',
     },
     input: {
         fontSize: Typography.size.md,
-        color: 'rgba(0,0,0,0.85)',
         paddingVertical: 0,
     },
 });

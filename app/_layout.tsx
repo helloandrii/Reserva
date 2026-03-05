@@ -75,6 +75,7 @@ function RootLayout() {
             options={{
               headerShown: false,
               presentation: 'formSheet',
+              gestureEnabled: true,
               sheetGrabberVisible: true,
               sheetAllowedDetents: [0.5, 1],
               sheetInitialDetentIndex: 0,

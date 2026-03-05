@@ -70,6 +70,18 @@ function RootLayout() {
           <Stack.Screen name="onboarding" />
           <Stack.Screen name="legal" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', headerShown: true }} />
+          <Stack.Screen
+            name="categories-sheet"
+            options={{
+              headerShown: false,
+              presentation: 'formSheet',
+              sheetGrabberVisible: true,
+              sheetAllowedDetents: [0.5, 1],
+              sheetInitialDetentIndex: 0,
+              sheetLargestUndimmedDetentIndex: 0,
+              contentStyle: { backgroundColor: 'transparent' },
+            }}
+          />
         </Stack>
         <StatusBar style="light" />
       </ToastProvider>

@@ -158,6 +158,12 @@ export const Typography = {
     '2xl': 24,
     '3xl': 28,
     '4xl': 34,
+    // Semantic aliases
+    caption: 13,
+    body: 15,
+    title: 17,
+    heading: 24,
+    display: 34,
   },
 
   // Weight

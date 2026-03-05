@@ -15,48 +15,47 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Strings } from '@/constants/strings';
-import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
+import { Palette, Radius, Spacing, Typography } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const AUTO_SCROLL_INTERVAL = 4000;
-
 const slides = Strings.onboarding.slides;
-
 const SLIDE_ICONS: readonly string[] = ['calendar', 'map', 'checkmark-circle'];
 
-// ─── Slide Item ───────────────────────────────────────────────────────────────
-
-function SlideItem({ item, index }: { item: typeof slides[number]; index: number }) {
+function SlideItem({ item, index, C }: { item: typeof slides[number]; index: number; C: ReturnType<typeof useThemeColors> }) {
     const icon = SLIDE_ICONS[index] ?? 'star';
     return (
         <View style={[styles.slide, { width: SCREEN_WIDTH }]}>
-            <View style={styles.iconWrap}>
-                <Ionicons name={icon as any} size={64} color="#fff" />
+            <View style={[styles.iconWrap, { backgroundColor: C.backgroundTertiary, borderColor: C.border }]}>
+                <Ionicons name={icon as any} size={64} color={Palette.accent} />
             </View>
-            <Text style={styles.slideTitle}>{item.title}</Text>
-            <Text style={styles.slideSubtitle}>{item.subtitle}</Text>
+            <Text style={[styles.slideTitle, { color: C.text }]}>{item.title}</Text>
+            <Text style={[styles.slideSubtitle, { color: C.textSecondary }]}>{item.subtitle}</Text>
         </View>
     );
 }
 
-// ─── Dot ──────────────────────────────────────────────────────────────────────
-
-function Dot({ active }: { active: boolean }) {
-    return <View style={[styles.dot, active && styles.dotActive]} />;
+function Dot({ active, C }: { active: boolean; C: ReturnType<typeof useThemeColors> }) {
+    return (
+        <View style={[
+            styles.dot,
+            { backgroundColor: C.border },
+            active && { width: 24, backgroundColor: Palette.accent },
+        ]} />
+    );
 }
-
-// ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function OnboardingCarousel() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
+    const C = useThemeColors();
     const listRef = useRef<FlatList>(null);
     const [activeIndex, setActiveIndex] = useState(0);
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(30)).current;
     const userTouching = useRef(false);
 
-    // Entrance animation
     useEffect(() => {
         Animated.parallel([
             Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
@@ -64,7 +63,6 @@ export default function OnboardingCarousel() {
         ]).start();
     }, []);
 
-    // Auto-scroll
     useEffect(() => {
         const id = setInterval(() => {
             if (userTouching.current) return;
@@ -77,9 +75,7 @@ export default function OnboardingCarousel() {
 
     const onViewableItemsChanged = useRef(
         ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-            if (viewableItems[0]?.index != null) {
-                setActiveIndex(viewableItems[0].index);
-            }
+            if (viewableItems[0]?.index != null) setActiveIndex(viewableItems[0].index);
         },
     ).current;
 
@@ -94,28 +90,24 @@ export default function OnboardingCarousel() {
     };
 
     return (
-        <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 24) }]}>
-            {/* Background gradient circles */}
-            <View style={styles.bgCircle1} />
-            <View style={styles.bgCircle2} />
+        <View style={[styles.container, { backgroundColor: C.background, paddingBottom: Math.max(insets.bottom, 24) }]}>
+            {/* Background accent orbs */}
+            <View style={[styles.bgCircle1, { backgroundColor: Palette.accentLight }]} />
+            <View style={[styles.bgCircle2, { backgroundColor: C.backgroundSecondary }]} />
 
             {/* Skip */}
-            <Animated.View
-                style={[styles.skipWrap, { paddingTop: insets.top + 12, opacity: fadeAnim }]}
-            >
+            <Animated.View style={[styles.skipWrap, { paddingTop: insets.top + 12, opacity: fadeAnim }]}>
                 <TouchableOpacity onPress={() => router.push('/onboarding/user-type')}>
-                    <Text style={styles.skipText}>Skip</Text>
+                    <Text style={[styles.skipText, { color: C.textSecondary }]}>Skip</Text>
                 </TouchableOpacity>
             </Animated.View>
 
             {/* Slides */}
-            <Animated.View
-                style={{ flex: 1, opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
-            >
+            <Animated.View style={{ flex: 1, opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
                 <FlatList
                     ref={listRef}
-                    data={slides as any[]}
-                    renderItem={({ item, index }) => <SlideItem item={item} index={index} />}
+                    data={slides as unknown as any[]}
+                    renderItem={({ item, index }) => <SlideItem item={item} index={index} C={C} />}
                     keyExtractor={(_, i) => String(i)}
                     horizontal
                     pagingEnabled
@@ -128,19 +120,23 @@ export default function OnboardingCarousel() {
                 />
             </Animated.View>
 
-            {/* Bottom: dots + button */}
+            {/* Bottom */}
             <Animated.View style={[styles.bottom, { opacity: fadeAnim }]}>
                 <View style={styles.dots}>
-                    {slides.map((_, i) => <Dot key={i} active={i === activeIndex} />)}
+                    {slides.map((_, i) => <Dot key={i} active={i === activeIndex} C={C} />)}
                 </View>
 
-                <TouchableOpacity style={styles.nextButton} onPress={handleNext} activeOpacity={0.85}>
+                <TouchableOpacity
+                    style={[styles.nextButton, { backgroundColor: Palette.accent }]}
+                    onPress={handleNext}
+                    activeOpacity={0.85}
+                >
                     {isLast ? (
                         <Text style={styles.nextButtonText}>{Strings.common.getStarted}</Text>
                     ) : (
                         <>
                             <Text style={styles.nextButtonText}>{Strings.common.next}</Text>
-                            <Ionicons name="arrow-forward" size={18} color="#000" />
+                            <Ionicons name="arrow-forward" size={18} color="#fff" />
                         </>
                     )}
                 </TouchableOpacity>
@@ -150,41 +146,19 @@ export default function OnboardingCarousel() {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#000',
-    },
+    container: { flex: 1 },
     bgCircle1: {
         position: 'absolute',
-        width: 400,
-        height: 400,
-        borderRadius: 200,
-        backgroundColor: '#1a1a1a',
-        top: -120,
-        right: -120,
+        width: 400, height: 400, borderRadius: 200,
+        top: -140, right: -120, opacity: 0.5,
     },
     bgCircle2: {
         position: 'absolute',
-        width: 300,
-        height: 300,
-        borderRadius: 150,
-        backgroundColor: '#111',
-        bottom: 100,
-        left: -80,
+        width: 300, height: 300, borderRadius: 150,
+        bottom: 100, left: -80,
     },
-
-    // ── Skip
-    skipWrap: {
-        position: 'absolute',
-        right: Spacing.lg,
-        zIndex: 10,
-    },
-    skipText: {
-        color: Colors.dark.textSecondary,
-        fontSize: Typography.size.md,
-    },
-
-    // ── Slide
+    skipWrap: { position: 'absolute', right: Spacing.lg, zIndex: 10 },
+    skipText: { fontSize: Typography.size.body },
     slide: {
         flex: 1,
         alignItems: 'center',
@@ -194,55 +168,35 @@ const styles = StyleSheet.create({
         paddingTop: 80,
     },
     iconWrap: {
-        width: 120,
-        height: 120,
+        width: 120, height: 120,
         borderRadius: Radius.xl,
-        backgroundColor: '#1a1a1a',
         borderWidth: 1,
-        borderColor: '#2a2a2a',
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: Spacing.xl,
         ...Platform.select({
-            ios: { shadowColor: '#fff', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.05, shadowRadius: 20 },
+            ios: { shadowColor: Palette.accent, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.2, shadowRadius: 24 },
             android: { elevation: 4 },
         }),
     },
     slideTitle: {
         fontSize: Typography.size['3xl'],
         fontWeight: Typography.weight.bold,
-        color: Colors.dark.text,
         textAlign: 'center',
         letterSpacing: -0.5,
     },
     slideSubtitle: {
-        fontSize: Typography.size.md,
-        color: Colors.dark.textSecondary,
+        fontSize: Typography.size.body,
         textAlign: 'center',
-        lineHeight: Typography.size.md * 1.6,
+        lineHeight: Typography.size.body * 1.6,
     },
-
-    // ── Bottom
     bottom: {
         paddingHorizontal: Spacing['2xl'],
         gap: Spacing.xl,
         paddingTop: Spacing.lg,
     },
-    dots: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        gap: Spacing.sm,
-    },
-    dot: {
-        width: 6,
-        height: 6,
-        borderRadius: Radius.full,
-        backgroundColor: '#333',
-    },
-    dotActive: {
-        width: 24,
-        backgroundColor: Colors.dark.text,
-    },
+    dots: { flexDirection: 'row', justifyContent: 'center', gap: Spacing.sm },
+    dot: { width: 6, height: 6, borderRadius: Radius.full },
     nextButton: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -250,11 +204,10 @@ const styles = StyleSheet.create({
         gap: Spacing.sm,
         height: 56,
         borderRadius: Radius.lg,
-        backgroundColor: Colors.dark.text, // white
     },
     nextButtonText: {
-        fontSize: Typography.size.lg,
+        fontSize: Typography.size.title,
         fontWeight: Typography.weight.semibold,
-        color: Colors.dark.textInverse, // black
+        color: '#fff',
     },
 });

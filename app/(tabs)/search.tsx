@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GlassSearchBar } from '@/components/GlassSearchBar';
 import { Palette, Radius, Spacing, Typography } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -60,12 +61,13 @@ const TRENDING_SERVICES: TrendingService[] = [
 // ─── Category Card ─────────────────────────────────────────────────────────────
 
 function CategoryCard({ item }: { item: Category }) {
+    const C = useThemeColors();
     return (
         <TouchableOpacity style={[styles.catCard, { backgroundColor: item.color }]} activeOpacity={0.8}>
             <View style={styles.catIconWrap}>
                 <Ionicons name={item.icon} size={24} color={Palette.accentDark} />
             </View>
-            <Text style={styles.catLabel} numberOfLines={2}>{item.label}</Text>
+            <Text style={[styles.catLabel, { color: '#2D2D3E' }]} numberOfLines={2}>{item.label}</Text>
         </TouchableOpacity>
     );
 }
@@ -73,17 +75,18 @@ function CategoryCard({ item }: { item: Category }) {
 // ─── Trending Card ─────────────────────────────────────────────────────────────
 
 function TrendingCard({ item }: { item: TrendingService }) {
+    const C = useThemeColors();
     return (
-        <TouchableOpacity style={styles.trendCard} activeOpacity={0.8}>
+        <TouchableOpacity style={[styles.trendCard, { backgroundColor: C.surface }]} activeOpacity={0.8}>
             <View style={[styles.trendIconWrap, { backgroundColor: item.accent + '30' }]}>
                 <Ionicons name={item.icon} size={28} color={item.accent} />
             </View>
-            <Text style={styles.trendTitle} numberOfLines={1}>{item.title}</Text>
-            <Text style={styles.trendSubtitle}>{item.subtitle}</Text>
+            <Text style={[styles.trendTitle, { color: C.text }]} numberOfLines={1}>{item.title}</Text>
+            <Text style={[styles.trendSubtitle, { color: C.textSecondary }]}>{item.subtitle}</Text>
             <View style={styles.trendRatingRow}>
                 <Ionicons name="star" size={12} color="#FFB800" />
-                <Text style={styles.trendRating}>{item.rating}</Text>
-                <Text style={styles.trendReviews}>({item.reviews})</Text>
+                <Text style={[styles.trendRating, { color: C.text }]}>{item.rating}</Text>
+                <Text style={[styles.trendReviews, { color: C.textTertiary }]}>({item.reviews})</Text>
             </View>
         </TouchableOpacity>
     );
@@ -93,12 +96,13 @@ function TrendingCard({ item }: { item: TrendingService }) {
 
 export default function SearchScreen() {
     const insets = useSafeAreaInsets();
+    const C = useThemeColors();
     const inputRef = useRef<TextInput>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [isSearchActive, setIsSearchActive] = useState(false);
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top + Spacing.sm }]}>
+        <View style={[styles.container, { backgroundColor: C.background, paddingTop: insets.top + Spacing.sm }]}>
             {/* Search bar */}
             <View style={styles.searchWrap}>
                 <GlassSearchBar
@@ -122,7 +126,7 @@ export default function SearchScreen() {
                 {/* ── Categories ── */}
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Categories</Text>
+                        <Text style={[styles.sectionTitle, { color: C.text }]}>Categories</Text>
                         <TouchableOpacity>
                             <Text style={styles.seeAll}>See all</Text>
                         </TouchableOpacity>
@@ -141,7 +145,7 @@ export default function SearchScreen() {
                 {/* ── Trending Services ── */}
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Trending</Text>
+                        <Text style={[styles.sectionTitle, { color: C.text }]}>Trending</Text>
                         <TouchableOpacity>
                             <Text style={styles.seeAll}>See all</Text>
                         </TouchableOpacity>
@@ -164,7 +168,6 @@ export default function SearchScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F8F7FC',
     },
     searchWrap: {
         marginBottom: Spacing.sm,

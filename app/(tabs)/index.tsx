@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
+import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
     ScrollView,
@@ -38,6 +39,7 @@ const CATEGORIES = Strings.map.categories;
 
 export default function MapScreen() {
     const insets = useSafeAreaInsets();
+    const router = useRouter();
     const mapRef = useRef<MapView>(null);
     const inputRef = useRef<TextInput>(null);
 
@@ -128,7 +130,7 @@ export default function MapScreen() {
                         <GlassChip
                             label="More"
                             icon="grid-outline"
-                            onPress={() => {/* TODO: open categories modal */ }}
+                            onPress={() => router.push('/categories-sheet')}
                         />
                     </ScrollView>
                 )}

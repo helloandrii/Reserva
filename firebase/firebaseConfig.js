@@ -1,15 +1,15 @@
 import { getApp, getApps, initializeApp } from 'firebase/app';
 
-// Your Firebase project configuration.
-// Set these in your .env file (prefixed with EXPO_PUBLIC_ to be exposed to the client).
+// Firebase project configuration.
+// Values are loaded from environment variables — see .env (gitignored) and .env.example.
 const firebaseConfig = {
-    apiKey: "AIzaSyAcEtxoVEURXdR6FpAc4ec8-tpuVr3qFVo",
-    authDomain: "reserva-d6416.firebaseapp.com",
-    projectId: "reserva-d6416",
-    storageBucket: "reserva-d6416.firebasestorage.app",
-    messagingSenderId: "1046245640040",
-    appId: "1:1046245640040:web:afcc9473da677c5b0978dd",
-    measurementId: "G-M8S9D8183C"
+    apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+    authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+    storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+    appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+    measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
 // Prevent re-initializing the app on hot reloads (important for Expo).

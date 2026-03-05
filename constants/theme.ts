@@ -24,7 +24,12 @@ export const Palette = {
   grey800: '#424242',
   grey900: '#212121',
 
-  // Accent — iOS system blue (used sparingly)
+  // Accent — brand lavender
+  accent: '#B8AFE6',
+  accentLight: '#EAE7F7',
+  accentDark: '#9B90D4',
+
+  // Legacy blue (keep for info/status)
   blue: '#0A84FF',
   blueLight: '#E8F2FF',
 
@@ -57,12 +62,12 @@ export const Colors = {
     borderStrong: Palette.grey300,
 
     // Interactive
-    tint: Palette.blue,
-    tintBackground: Palette.blueLight,
+    tint: Palette.accent,
+    tintBackground: Palette.accentLight,
 
     // Tab bar
     tabIconDefault: Palette.grey400,
-    tabIconSelected: Palette.blue,
+    tabIconSelected: Palette.accent,
 
     // Status
     success: Palette.success,
@@ -89,12 +94,12 @@ export const Colors = {
     borderStrong: '#48484A',
 
     // Interactive
-    tint: Palette.blue,
-    tintBackground: '#0A2540',
+    tint: Palette.accent,
+    tintBackground: 'rgba(184,175,230,0.15)',
 
     // Tab bar
     tabIconDefault: '#636366',
-    tabIconSelected: Palette.blue,
+    tabIconSelected: Palette.accent,
 
     // Status
     success: Palette.success,

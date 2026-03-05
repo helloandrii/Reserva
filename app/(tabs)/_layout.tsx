@@ -17,13 +17,13 @@ export default function TabLayout() {
         <Label>Map</Label>
         <Icon sf="map" />
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="search">
+        <Label>Search</Label>
+        <Icon sf="magnifyingglass" />
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="bookings">
         <Label>Bookings</Label>
         <Icon sf="calendar.badge.clock" />
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="profile">
-        <Label>Profile</Label>
-        <Icon sf="person.fill" />
       </NativeTabs.Trigger>
     </NativeTabs>
   );

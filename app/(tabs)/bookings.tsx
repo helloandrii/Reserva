@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { Link, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
@@ -330,14 +330,13 @@ export default function BookingsScreen() {
             {/* Header */}
             <View style={styles.header}>
                 <Text style={[styles.headerTitle, { color: C.text }]}>{Strings.bookings.title}</Text>
-                <Link href="/settings" asChild>
-                    <TouchableOpacity
-                        style={[styles.settingsBtn, { backgroundColor: C.backgroundSecondary }]}
-                        activeOpacity={0.7}
-                    >
-                        <Ionicons name="settings-outline" size={20} color={C.textSecondary} />
-                    </TouchableOpacity>
-                </Link>
+                <TouchableOpacity
+                    style={[styles.settingsBtn, { backgroundColor: C.backgroundSecondary }]}
+                    activeOpacity={0.7}
+                    onPress={() => router.push('/settings')}
+                >
+                    <Ionicons name="settings-outline" size={20} color={C.textSecondary} />
+                </TouchableOpacity>
             </View>
 
             {/* Profile widget */}

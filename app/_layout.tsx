@@ -27,9 +27,10 @@ function NavigationGuard() {
 
     const inOnboarding = segments[0] === 'onboarding';
     const inLegal = segments[0] === 'legal';
+    const inSettings = segments[0] === 'settings';
     const inTabs = segments[0] === '(tabs)';
 
-    if (inLegal) return;
+    if (inLegal || inSettings) return;
 
     const passedOnboarding = DEV_ALWAYS_SHOW_ONBOARDING
       ? onboardingComplete   // in dev mode: only pass when user explicitly skipped/signed in
@@ -67,8 +68,6 @@ function RootLayout() {
         <NavigationGuard />
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="onboarding" />
-          <Stack.Screen name="legal" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', headerShown: true }} />
           <Stack.Screen
             name="categories-sheet"

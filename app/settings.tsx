@@ -28,7 +28,7 @@ export default function SettingsScreen() {
                     <Ionicons name="chevron-back" size={24} color={C.text} />
                 </TouchableOpacity>
                 <Text style={[styles.title, { color: C.text }]}>Settings</Text>
-                <View style={{ width: 44 }} /> {/* Spacer */}
+                <View style={{ width: 44 }} />
             </View>
 
             <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + Spacing['2xl'] }}>
@@ -84,12 +84,12 @@ export default function SettingsScreen() {
                 </View>
 
                 {/* Danger Zone */}
-                {user && (
+                {user ? (
                     <TouchableOpacity style={[styles.signOutBtn, { backgroundColor: C.surface, borderColor: C.border }]} activeOpacity={0.7}>
                         <Ionicons name="log-out-outline" size={20} color={Palette.error} />
                         <Text style={[styles.signOutText, { color: Palette.error }]}>Sign Out</Text>
                     </TouchableOpacity>
-                )}
+                ) : null}
             </ScrollView>
         </View>
     );
@@ -106,7 +106,7 @@ function SettingRow({ icon, label, value, subValue, C }: any) {
             <Text style={[styles.rowLabel, { color: C.text }]}>{label}</Text>
             <View style={styles.valueWrap}>
                 <Text style={[styles.rowValue, { color: C.textSecondary }]}>{value}</Text>
-                {subValue && <Text style={[styles.rowSubValue, { color: C.textTertiary }]}>{subValue}</Text>}
+                {subValue ? <Text style={[styles.rowSubValue, { color: C.textTertiary }]}>{subValue}</Text> : null}
             </View>
         </View>
     );

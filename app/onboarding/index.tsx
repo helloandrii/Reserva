@@ -5,12 +5,12 @@ import {
     Animated,
     Dimensions,
     FlatList,
-    Platform,
+    Image,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
-    ViewToken,
+    ViewToken
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -21,14 +21,18 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const AUTO_SCROLL_INTERVAL = 4000;
 const slides = Strings.onboarding.slides;
-const SLIDE_ICONS: readonly string[] = ['calendar', 'map', 'checkmark-circle'];
+const SLIDE_IMAGES: any[] = [
+    require('@/assets/images/onboarding_illustration_calendar_1772980389720.png'),
+    require('@/assets/images/onboarding_illustration_map_1772980403981.png'),
+    require('@/assets/images/onboarding_illustration_checkmark_1772980420252.png')
+];
 
 function SlideItem({ item, index, C }: { item: typeof slides[number]; index: number; C: ReturnType<typeof useThemeColors> }) {
-    const icon = SLIDE_ICONS[index] ?? 'star';
+    const slideImage = SLIDE_IMAGES[index];
     return (
         <View style={[styles.slide, { width: SCREEN_WIDTH }]}>
-            <View style={[styles.iconWrap, { backgroundColor: C.backgroundTertiary, borderColor: C.border }]}>
-                <Ionicons name={icon as any} size={64} color={Palette.accent} />
+            <View style={styles.imageWrap}>
+                {slideImage && <Image source={slideImage} style={styles.slideImage} resizeMode="contain" />}
             </View>
             <Text style={[styles.slideTitle, { color: C.text }]}>{item.title}</Text>
             <Text style={[styles.slideSubtitle, { color: C.textSecondary }]}>{item.subtitle}</Text>
@@ -167,17 +171,15 @@ const styles = StyleSheet.create({
         gap: Spacing.lg,
         paddingTop: 80,
     },
-    iconWrap: {
-        width: 120, height: 120,
-        borderRadius: Radius.xl,
-        borderWidth: 1,
+    imageWrap: {
+        width: 180, height: 180,
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: Spacing.xl,
-        ...Platform.select({
-            ios: { shadowColor: Palette.accent, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.2, shadowRadius: 24 },
-            android: { elevation: 4 },
-        }),
+    },
+    slideImage: {
+        width: '100%',
+        height: '100%',
     },
     slideTitle: {
         fontSize: Typography.size['3xl'],

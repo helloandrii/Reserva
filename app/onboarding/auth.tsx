@@ -121,19 +121,18 @@ export default function AuthScreen() {
                         <View style={[styles.dividerLine, { backgroundColor: C.border }]} />
                     </View>
 
-                    {/* Email — future-ready */}
+                    {/* Email flow */}
                     <TouchableOpacity
                         style={[styles.authButton, styles.emailButton, {
                             backgroundColor: C.backgroundSecondary,
                             borderColor: C.border,
                         }]}
-                        disabled
+                        onPress={() => router.push('/onboarding/email')}
+                        activeOpacity={0.82}
                     >
-                        <Ionicons name="mail-outline" size={20} color={C.textTertiary} />
-                        <Text style={[styles.emailText, { color: C.textTertiary }]}>{auth.email}</Text>
-                        <View style={[styles.comingSoonBadge, { backgroundColor: C.backgroundTertiary }]}>
-                            <Text style={[styles.comingSoonText, { color: C.textTertiary }]}>Soon</Text>
-                        </View>
+                        <Ionicons name="mail-outline" size={20} color={C.text} />
+                        <Text style={[styles.emailText, { color: C.text }]}>{auth.email}</Text>
+                        <Ionicons name="chevron-forward" size={18} color={C.textSecondary} />
                     </TouchableOpacity>
                 </View>
 
@@ -222,8 +221,8 @@ const styles = StyleSheet.create({
     divider: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, marginVertical: Spacing.xs },
     dividerLine: { flex: 1, height: 1 },
     dividerText: { fontSize: Typography.size.caption },
-    emailButton: { borderWidth: 1, opacity: 0.5 },
-    emailText: { fontSize: Typography.size.title, fontWeight: Typography.weight.semibold, flex: 1 },
+    emailButton: { borderWidth: 1, paddingHorizontal: Spacing.lg },
+    emailText: { fontSize: Typography.size.title, fontWeight: Typography.weight.semibold, flex: 1, marginLeft: Spacing.xs },
     comingSoonBadge: {
         paddingHorizontal: Spacing.sm,
         paddingVertical: 3,

@@ -24,12 +24,12 @@ export const Palette = {
   grey800: '#424242',
   grey900: '#212121',
 
-  // Brand accent — burnt orange
-  accent: '#F2530B',
-  accentLight: '#FFE7DB',
-  accentDark: '#C94108',
-  accentHover: '#E04A0A',
-  accentPressed: '#A83606',
+  // Brand accent — modern blue
+  accent: '#0A84FF',
+  accentLight: '#E8F2FF',
+  accentDark: '#0061CC',
+  accentHover: '#0075E6',
+  accentPressed: '#0052AB',
 
   // Legacy blue (keep for info/status)
   blue: '#0A84FF',

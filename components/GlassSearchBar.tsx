@@ -69,41 +69,37 @@ export function GlassSearchBar({
                 </TouchableOpacity>
             ) : (
                 <View style={styles.logoBox}>
-                    <Text style={[styles.staticR, { color: Palette.accent }]}>R</Text>
+                    <Ionicons name="location-outline" size={26} color={Palette.accent} />
                 </View>
             )}
 
             {/* Input / placeholder */}
-            <TouchableOpacity
-                style={styles.inputArea}
-                activeOpacity={1}
-                onPress={!active ? onPress : undefined}
-            >
-                {active ? (
-                    <TextInput
-                        ref={inputRef}
-                        style={[styles.input, { color: inputColor }]}
-                        placeholder={placeholder}
-                        placeholderTextColor={placeholderColor}
-                        value={value}
-                        onChangeText={onChangeText}
-                        onBlur={onBlur}
-                        returnKeyType="search"
-                        autoFocus
-                        autoCorrect={false}
-                        keyboardAppearance={isDark ? 'dark' : 'light'}
-                    />
-                ) : (
-                    <Text style={[styles.placeholder, { color: placeholderText }]}>{placeholder}</Text>
-                )}
-            </TouchableOpacity>
-
-            {/* Right: mic */}
-            {!active && (
-                <TouchableOpacity style={styles.iconBtn} onPress={handleMicPress}>
-                    <Ionicons name="mic" size={20} color={iconColor} />
+            <View style={styles.inputWrap}>
+                <TouchableOpacity
+                    style={styles.inputArea}
+                    activeOpacity={1}
+                    onPress={!active ? onPress : undefined}
+                >
+                    {active ? (
+                        <TextInput
+                            ref={inputRef}
+                            style={[styles.input, { color: inputColor }]}
+                            placeholder={placeholder}
+                            placeholderTextColor={placeholderColor}
+                            value={value}
+                            onChangeText={onChangeText}
+                            onBlur={onBlur}
+                            returnKeyType="search"
+                            autoFocus
+                            autoCorrect={false}
+                            keyboardAppearance={isDark ? 'dark' : 'light'}
+                        />
+                    ) : (
+                        <Text style={[styles.placeholder, { color: placeholderText }]} numberOfLines={1}>{placeholder}</Text>
+                    )}
                 </TouchableOpacity>
-            )}
+            </View>
+
         </View>
     );
 
@@ -150,21 +146,10 @@ const styles = StyleSheet.create({
         height: '100%',
     },
     logoBox: {
-        width: 34,
+        width: 44,
         height: 34,
-        borderRadius: Radius.full,
         alignItems: 'center',
         justifyContent: 'center',
-    },
-    staticR: {
-        color: Palette.accent,
-        fontSize: 22,
-        fontWeight: '900',
-        paddingHorizontal: 12, // More padding on bottom to offset Android/iOS font baseline
-        textAlign: 'center',
-        textShadowColor: Palette.accent,
-        textShadowOffset: { width: 0, height: 0 },
-        textShadowRadius: 10,
     },
     iconBtn: {
         width: 34,
@@ -172,9 +157,14 @@ const styles = StyleSheet.create({
         borderRadius: Radius.full,
         alignItems: 'center',
         justifyContent: 'center',
+        flexShrink: 0,
+    },
+    inputWrap: {
+        flex: 1,
+        flexShrink: 1, // ensure it shrinks within the row
     },
     inputArea: {
-        flex: 1,
+        width: '100%',
         height: '100%',
         justifyContent: 'center',
     },
@@ -182,6 +172,7 @@ const styles = StyleSheet.create({
         fontSize: Typography.size.md,
     },
     input: {
+        flex: 1, // fill the view without pushing bounds
         fontSize: Typography.size.md,
         paddingVertical: 0,
     },

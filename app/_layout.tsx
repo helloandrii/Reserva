@@ -83,6 +83,7 @@ function RootLayout() {
               contentStyle: { backgroundColor: 'transparent' },
             }}
           />
+          <Stack.Screen name="settings" options={{ headerShown: false, presentation: 'card' }} />
         </Stack>
         <StatusBar style="light" />
       </ToastProvider>

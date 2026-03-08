@@ -1,23 +1,27 @@
 import { Ionicons } from '@expo/vector-icons';
 import { GlassView } from 'expo-glass-effect';
 import * as Location from 'expo-location';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
+    FlatList,
     Platform,
     ScrollView,
     StyleSheet,
+    Text,
     TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
-import MapView from 'react-native-maps';
+import MapView, { Marker } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GlassChip } from '@/components/GlassChip';
 import { GlassSearchBar } from '@/components/GlassSearchBar';
+import { MapPin } from '@/components/MapPin';
 import { Strings } from '@/constants/strings';
-import { Palette, Spacing } from '@/constants/theme';
+import { Palette, Radius, Spacing, Typography } from '@/constants/theme';
+import { MapPoint, fetchMapPoints } from '@/firebase/mapServices';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useThemeColors } from '@/hooks/useThemeColors';
 
@@ -44,6 +48,7 @@ const CATEGORIES = Strings.map.categories;
 export default function MapScreen() {
     const insets = useSafeAreaInsets();
     const router = useRouter();
+    const params = useLocalSearchParams<{ category?: string }>();
     const mapRef = useRef<MapView>(null);
     const inputRef = useRef<TextInput>(null);
 
@@ -52,7 +57,12 @@ export default function MapScreen() {
     const [searchQuery, setSearchQuery] = useState('');
     const [isSearchActive, setIsSearchActive] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+    const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
+    const [sortFilter, setSortFilter] = useState<'rating' | 'reviews' | null>(null);
     const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
+    const [points, setPoints] = useState<MapPoint[]>([]);
+
+    const flatListRef = useRef<FlatList>(null);
 
     // Request location
     useEffect(() => {
@@ -64,6 +74,36 @@ export default function MapScreen() {
             setUserLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
         })();
     }, []);
+
+    // Sync route parameters to local state
+    useEffect(() => {
+        if (params.category && typeof params.category === 'string') {
+            setSelectedCategory(params.category);
+            // Optionally clear the param so it doesn't stick permanently, 
+            // but router.setParams isn't available exactly like this.
+        }
+    }, [params.category]);
+
+    // Fetch mock points based on selected category and filter
+    useEffect(() => {
+        let mounted = true;
+        fetchMapPoints(selectedCategory, sortFilter).then(data => {
+            if (mounted) {
+                setPoints(data);
+                // Clear selected service if we change categories bounds
+                setSelectedServiceId(null);
+
+                if (selectedCategory && data.length > 0 && mapRef.current) {
+                    // Center screen on the bounding box of the category points
+                    mapRef.current.fitToCoordinates(
+                        data.map(p => ({ latitude: p.latitude, longitude: p.longitude })),
+                        { edgePadding: { top: 150, right: 50, bottom: 250, left: 50 }, animated: true }
+                    );
+                }
+            }
+        });
+        return () => { mounted = false; };
+    }, [selectedCategory, sortFilter]);
 
     const C = useThemeColors();
     const isDark = useColorScheme() === 'dark';
@@ -78,6 +118,24 @@ export default function MapScreen() {
                 { ...userLocation, latitudeDelta: 0.02, longitudeDelta: 0.02 },
                 500
             );
+        }
+    };
+
+    const handleSelectPoint = (point: MapPoint) => {
+        setSelectedServiceId(point.id);
+        if (mapRef.current) {
+            mapRef.current.animateToRegion({
+                latitude: point.latitude, // Exactly center on screen
+                longitude: point.longitude,
+                latitudeDelta: 0.015,
+                longitudeDelta: 0.015,
+            }, 400);
+        }
+        if (selectedCategory && flatListRef.current) {
+            const index = points.findIndex(p => p.id === point.id);
+            if (index !== -1) {
+                flatListRef.current.scrollToIndex({ index, animated: true });
+            }
         }
     };
 
@@ -97,7 +155,21 @@ export default function MapScreen() {
                 showsMyLocationButton={false}
                 region={mapRegion}
                 mapType={mapType}
-            />
+            >
+                {points.map(p => (
+                    <Marker
+                        key={p.id}
+                        coordinate={{ latitude: p.latitude, longitude: p.longitude }}
+                        onPress={() => handleSelectPoint(p)}
+                        style={{ zIndex: selectedServiceId === p.id ? 2 : 1 }}
+                    >
+                        <MapPin
+                            iconName={CATEGORY_ICONS[p.category] || "location"}
+                            selected={selectedServiceId === p.id}
+                        />
+                    </Marker>
+                ))}
+            </MapView>
 
             {/* ── Top overlay: search + categories ── */}
             <View style={[styles.topOverlay, { top: headerTop }]}>
@@ -146,11 +218,34 @@ export default function MapScreen() {
                         />
                     </ScrollView>
                 )}
+
+                {/* Filter chip below categories when active */}
+                {!isSearchActive && selectedCategory && (
+                    <View style={styles.filterRow}>
+                        <GlassView style={styles.glassFilterRow} glassEffectStyle="regular">
+                            <TouchableOpacity
+                                style={[styles.filterBtn, sortFilter === 'rating' && styles.filterBtnActive]}
+                                onPress={() => setSortFilter(s => s === 'rating' ? null : 'rating')}
+                            >
+                                <Ionicons name="star" size={14} color={sortFilter === 'rating' ? '#fff' : C.text} />
+                                <Text style={[styles.filterBtnText, { color: sortFilter === 'rating' ? '#fff' : C.text }]}>Top Rated</Text>
+                            </TouchableOpacity>
+                            <View style={styles.filterDivider} />
+                            <TouchableOpacity
+                                style={[styles.filterBtn, sortFilter === 'reviews' && styles.filterBtnActive]}
+                                onPress={() => setSortFilter(s => s === 'reviews' ? null : 'reviews')}
+                            >
+                                <Ionicons name="people" size={14} color={sortFilter === 'reviews' ? '#fff' : C.text} />
+                                <Text style={[styles.filterBtnText, { color: sortFilter === 'reviews' ? '#fff' : C.text }]}>Most Reviewed</Text>
+                            </TouchableOpacity>
+                        </GlassView>
+                    </View>
+                )}
             </View>
 
             {/* ── FAB Group (Layers & Location) ── */}
             {!isSearchActive && (
-                <View style={[styles.locationFabWrap, { bottom: insets.bottom + 100 }]}>
+                <View style={[styles.locationFabWrap, { bottom: insets.bottom + (selectedCategory ? 210 : 100) }]}>
                     {Platform.OS === 'ios' ? (
                         <GlassView style={styles.fabGlass} glassEffectStyle="regular">
                             <TouchableOpacity
@@ -182,6 +277,48 @@ export default function MapScreen() {
                     )}
                 </View>
             )}
+
+            {/* ── Bottom Services Tab (When category selected OR pin selected) ── */}
+            {(selectedCategory || selectedServiceId) && !isSearchActive && (
+                <View style={[styles.bottomServicesWrap, { bottom: insets.bottom + 80 }]}>
+                    <FlatList
+                        ref={flatListRef}
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.bottomServicesScroll}
+                        data={selectedCategory ? points : points.filter(p => p.id === selectedServiceId)}
+                        keyExtractor={p => p.id}
+                        onScrollToIndexFailed={(info) => {
+                            const wait = new Promise(resolve => setTimeout(resolve, 500));
+                            wait.then(() => {
+                                flatListRef.current?.scrollToIndex({ index: info.index, animated: true });
+                            });
+                        }}
+                        renderItem={({ item: p }) => (
+                            <TouchableOpacity
+                                style={styles.serviceCardWrap}
+                                onPress={() => handleSelectPoint(p)}
+                                activeOpacity={0.9}
+                            >
+                                <GlassView
+                                    style={[
+                                        styles.serviceCard,
+                                        selectedServiceId === p.id && { borderColor: Palette.accent, borderWidth: 1.5 }
+                                    ]}
+                                    glassEffectStyle="regular"
+                                >
+                                    <Text style={[styles.serviceTitle, { color: C.text }]} numberOfLines={1}>{p.title}</Text>
+                                    <Text style={[styles.serviceCategory, { color: C.textSecondary }]}>{p.category}</Text>
+                                    <View style={styles.ratingRow}>
+                                        <Ionicons name="star" size={12} color={Palette.accent} />
+                                        <Text style={[styles.ratingText, { color: C.textSecondary }]}>{p.rating} ({p.reviews})</Text>
+                                    </View>
+                                </GlassView>
+                            </TouchableOpacity>
+                        )}
+                    />
+                </View>
+            )}
         </View>
     );
 }
@@ -205,6 +342,42 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.lg,
         gap: Spacing.sm,
         paddingVertical: 2,
+    },
+
+    // ── Filter Row
+    filterRow: {
+        paddingHorizontal: Spacing.lg,
+        marginTop: Spacing.xs,
+        alignItems: 'flex-start',
+    },
+    glassFilterRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 4,
+        paddingVertical: 4,
+        borderRadius: Radius.lg,
+        overflow: 'hidden',
+    },
+    filterBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: Radius.md,
+    },
+    filterBtnActive: {
+        backgroundColor: Palette.accent,
+    },
+    filterBtnText: {
+        fontSize: Typography.size.caption,
+        fontWeight: Typography.weight.semibold,
+    },
+    filterDivider: {
+        width: 1,
+        height: 16,
+        backgroundColor: 'rgba(150,150,150,0.3)',
+        marginHorizontal: 4,
     },
 
     // ── FAB Group
@@ -235,5 +408,52 @@ const styles = StyleSheet.create({
     fabDivider: {
         height: 1,
         width: '100%',
+    },
+
+    // ── Bottom Services Card
+    bottomServicesWrap: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        height: 110,
+    },
+    bottomServicesScroll: {
+        paddingHorizontal: Spacing.lg,
+        gap: Spacing.md,
+    },
+    serviceCardWrap: {
+        width: 200,
+        transform: [{ scale: 1 }],
+        ...Platform.select({
+            ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.15, shadowRadius: 12 },
+            android: { elevation: 4 },
+        }),
+    },
+    serviceCard: {
+        flex: 1,
+        padding: Spacing.md,
+        borderRadius: Radius.lg,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)', // Base border for glass
+        overflow: 'hidden',
+    },
+    serviceTitle: {
+        fontSize: Typography.size.title,
+        fontWeight: Typography.weight.semibold,
+        marginBottom: 2,
+    },
+    serviceCategory: {
+        fontSize: Typography.size.caption,
+        marginBottom: Spacing.xs,
+    },
+    ratingRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        marginTop: 'auto',
+    },
+    ratingText: {
+        fontSize: Typography.size.caption,
+        fontWeight: Typography.weight.medium,
     },
 });

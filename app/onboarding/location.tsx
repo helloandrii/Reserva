@@ -108,7 +108,7 @@ export default function LocationScreen() {
                             size={20} color="#fff"
                         />
                         <Text style={styles.allowBtnText}>
-                            {status === 'requesting' ? 'Requesting…' : status === 'granted' ? 'Granted ✓' : 'Allow Location Access'}
+                            {status === 'requesting' ? 'Requesting…' : status === 'granted' ? 'Granted' : 'Allow Location Access'}
                         </Text>
                     </TouchableOpacity>
 

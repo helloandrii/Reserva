@@ -72,6 +72,14 @@ export default function UserTypeScreen() {
                         </View>
                     </TouchableOpacity>
                 </View>
+
+                {/* Not sure link */}
+                <TouchableOpacity
+                    style={styles.notSureButton}
+                    onPress={() => router.push('/onboarding/explanation')}
+                >
+                    <Text style={[styles.notSureText, { color: C.textTertiary }]}>Not sure which one you are?</Text>
+                </TouchableOpacity>
             </Animated.View>
         </View>
     );
@@ -147,5 +155,13 @@ const styles = StyleSheet.create({
     businessCardSubtitle: {
         fontSize: Typography.size.caption,
         marginTop: 2,
+    },
+    notSureButton: {
+        alignSelf: 'center',
+        paddingVertical: Spacing.xl,
+    },
+    notSureText: {
+        fontSize: Typography.size.body,
+        textDecorationLine: 'underline',
     },
 });

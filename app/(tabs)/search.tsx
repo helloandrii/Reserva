@@ -164,7 +164,7 @@ export default function SearchScreen() {
                             <CategoryCard
                                 key={item.label}
                                 item={item}
-                                onPress={() => router.push(`/filter-search?category=${encodeURIComponent(item.label)}`)}
+                                onPress={() => router.navigate({ pathname: '/', params: { category: item.label } })}
                             />
                         ))}
                     </View>
@@ -187,7 +187,7 @@ export default function SearchScreen() {
                             <TrendingCard
                                 key={item.id}
                                 item={item}
-                                onPress={() => router.push(`/filter-search?service=${encodeURIComponent(item.id)}`)}
+                                onPress={() => router.navigate({ pathname: '/', params: { category: 'Hair' } })} // fallback to map for testing
                             />
                         ))}
                     </ScrollView>

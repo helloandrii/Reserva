@@ -7,6 +7,7 @@ import { Palette, Radius, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import * as Linking from 'expo-linking';
 import { useState } from 'react';
 
 export default function SettingsScreen() {
@@ -58,6 +59,17 @@ export default function SettingsScreen() {
                         icon="moon-outline" label="Theme"
                         value={isDark ? 'Dark Mode' : 'Light Mode'}
                         subValue="System Default" C={C}
+                    />
+                </View>
+
+                {/* System Settings Section (For OS Level overrides) */}
+                <Text style={[styles.sectionHeader, { color: C.textSecondary }]}>SYSTEM SETTINGS</Text>
+                <View style={[styles.sectionGroup, { backgroundColor: C.surface, borderColor: C.border }]}>
+                    <SettingLink
+                        icon="settings-outline"
+                        label="Open Device Settings"
+                        onPress={() => Linking.openSettings()}
+                        C={C}
                     />
                 </View>
 
@@ -116,9 +128,9 @@ function SettingToggle({ icon, label, value, onValueChange, C }: any) {
     );
 }
 
-function SettingLink({ icon, label, C }: any) {
+function SettingLink({ icon, label, onPress, C }: any) {
     return (
-        <TouchableOpacity style={styles.row} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.row} activeOpacity={0.7} onPress={onPress}>
             <View style={[styles.iconWrap, { backgroundColor: C.backgroundSecondary }]}>
                 <Ionicons name={icon} size={18} color={C.textSecondary} />
             </View>

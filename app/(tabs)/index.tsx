@@ -84,26 +84,38 @@ export default function MapScreen() {
         }
     }, [params.category]);
 
-    // Fetch mock points based on selected category and filter
+    // Fetch mock points based on selected category and filter and search query
+    // Debounce search slightly to avoid spamming Supabase while typing
+    const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
     useEffect(() => {
         let mounted = true;
-        fetchMapPoints(selectedCategory, sortFilter).then(data => {
+        fetchMapPoints(selectedCategory, sortFilter, debouncedSearch).then(data => {
             if (mounted) {
                 setPoints(data);
-                // Clear selected service if we change categories bounds
-                setSelectedServiceId(null);
+                
+                // If the currently selected pin is no longer in the results, drop the selection
+                if (selectedServiceId && !data.some(p => p.id === selectedServiceId)) {
+                    setSelectedServiceId(null);
+                }
 
-                if (selectedCategory && data.length > 0 && mapRef.current) {
-                    // Center screen on the bounding box of the category points
-                    mapRef.current.fitToCoordinates(
-                        data.map(p => ({ latitude: p.latitude, longitude: p.longitude })),
-                        { edgePadding: { top: 150, right: 50, bottom: 250, left: 50 }, animated: true }
-                    );
+                if (data.length > 0 && mapRef.current) {
+                    // Only auto-center if we're filtering by a specific category OR actively searching
+                    if (selectedCategory || debouncedSearch.trim() !== '') {
+                         mapRef.current.fitToCoordinates(
+                             data.map(p => ({ latitude: p.latitude, longitude: p.longitude })),
+                             { edgePadding: { top: 150, right: 50, bottom: 250, left: 50 }, animated: true }
+                         );
+                    }
                 }
             }
         });
         return () => { mounted = false; };
-    }, [selectedCategory, sortFilter]);
+    }, [selectedCategory, sortFilter, debouncedSearch]);
 
     const C = useThemeColors();
     const isDark = useColorScheme() === 'dark';
@@ -157,6 +169,12 @@ export default function MapScreen() {
                 mapPadding={{ top: insets.top + 50, right: 10, bottom: 0, left: 0 }}
                 region={mapRegion}
                 mapType={mapType}
+                onPress={() => {
+                    // Deselect pin or category when tapping empty space on the map
+                    if (selectedServiceId) setSelectedServiceId(null);
+                    if (selectedCategory) setSelectedCategory(null);
+                    if (isSearchActive) setIsSearchActive(false);
+                }}
             >
                 {points.map(p => (
                     <Marker
@@ -299,7 +317,7 @@ export default function MapScreen() {
                         renderItem={({ item: p }) => (
                             <TouchableOpacity
                                 style={styles.serviceCardWrap}
-                                onPress={() => handleSelectPoint(p)}
+                                onPress={() => router.push(`/service/${p.id}`)}
                                 activeOpacity={0.9}
                             >
                                 <GlassView

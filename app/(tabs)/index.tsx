@@ -153,6 +153,8 @@ export default function MapScreen() {
                 style={StyleSheet.absoluteFillObject}
                 showsUserLocation={hasLocation === true}
                 showsMyLocationButton={false}
+                showsCompass={true}
+                mapPadding={{ top: insets.top + 50, right: 10, bottom: 0, left: 0 }}
                 region={mapRegion}
                 mapType={mapType}
             >

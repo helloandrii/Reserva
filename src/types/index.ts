@@ -9,7 +9,7 @@ export type Timestamp = string;
 // ─── User / Auth ──────────────────────────────────────────────────────────────
 
 export interface UserProfile {
-    uid: string;
+    id: string;
     displayName: string;
     email: string | null;
     photoURL: string | null;

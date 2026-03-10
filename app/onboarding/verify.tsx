@@ -20,7 +20,7 @@ export default function VerifyScreen() {
     const [loading, setLoading] = useState(false);
 
     const handleContinue = async () => {
-        if (code.length !== 6 || !email) return;
+        if (code.length !== 8 || !email) return;
         setLoading(true);
 
         try {
@@ -62,25 +62,25 @@ export default function VerifyScreen() {
 
             <View style={styles.content}>
                 <Text style={[styles.title, { color: C.text }]}>Check your email</Text>
-                <Text style={[styles.subtitle, { color: C.textSecondary }]}>We sent a 6-digit code to verify your account.</Text>
+                <Text style={[styles.subtitle, { color: C.textSecondary }]}>We sent an 8-digit code to verify your account.</Text>
 
                 <View style={[styles.inputWrap, { borderColor: C.border, backgroundColor: C.backgroundSecondary }]}>
                     <Ionicons name="keypad-outline" size={20} color={C.textSecondary} />
                     <TextInput
                         style={[styles.input, { color: C.text, letterSpacing: 8 }]}
-                        placeholder="000000"
+                        placeholder="00000000"
                         placeholderTextColor={C.textTertiary}
                         value={code}
                         onChangeText={setCode}
                         keyboardType="number-pad"
-                        maxLength={6}
+                        maxLength={8}
                         autoFocus
                     />
                 </View>
 
                 <TouchableOpacity
-                    style={[styles.continueButton, { backgroundColor: code.length === 6 ? Palette.accent : C.border }, loading && { opacity: 0.7 }]}
-                    disabled={code.length < 6 || loading}
+                    style={[styles.continueButton, { backgroundColor: code.length === 8 ? Palette.accent : C.border }, loading && { opacity: 0.7 }]}
+                    disabled={code.length < 8 || loading}
                     onPress={handleContinue}
                 >
                     {loading ? (

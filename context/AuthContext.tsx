@@ -115,7 +115,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
 
             const resolvedProfile: UserProfile = {
-                uid: supabaseUser.id, // mapping Supabase ID to Firebase UID field to maintain compatibility
+                id: supabaseUser.id, // mapping Supabase ID to the native id field
                 displayName: supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name || 'User',
                 email: supabaseUser.email || null,
                 photoURL: supabaseUser.user_metadata?.avatar_url || null,
@@ -151,7 +151,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const skipAuthDev = async () => {
         const intendedRole = await AsyncStorage.getItem('reserva_intended_role');
         const mockProfile: UserProfile = {
-            uid: 'dev-mock-uid',
+            id: 'dev-mock-uid',
             displayName: 'Dev User',
             email: 'dev@reserva.app',
             photoURL: null,

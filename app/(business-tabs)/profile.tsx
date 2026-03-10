@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
+import { Strings } from '@/constants/strings';
 
 import { Colors, Palette, Radius, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
@@ -30,22 +32,35 @@ export default function BusinessProfileScreen() {
   const [saving, setSaving] = useState(false);
   
   const [modalVisible, setModalVisible] = useState(false);
+  const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const [editHours, setEditHours] = useState<WorkingHours>(DEFAULT_HOURS);
+  
+  const [category, setCategory] = useState<string>('');
+  const [location, setLocation] = useState<{ latitude: number, longitude: number } | null>(null);
+  
+  const [editCategory, setEditCategory] = useState<string>('');
+  const [editLocation, setEditLocation] = useState<{ latitude: number, longitude: number } | null>(null);
 
   const fetchProfile = async () => {
-    if (!profile?.uid) return;
+    if (!profile?.id) return;
     setLoading(true);
     try {
       const { data, error } = await supabase
         .from('business_profiles')
         .select('*')
-        .eq('id', profile.uid)
+        .eq('id', profile.id)
         .single();
         
       if (error && error.code !== 'PGRST116') throw error; // ignore row not found
       
-      if (data?.working_hours) {
-        setHours({ ...DEFAULT_HOURS, ...data.working_hours });
+      if (data) {
+        if (data.working_hours) {
+          setHours({ ...DEFAULT_HOURS, ...data.working_hours });
+        }
+        setCategory(data.category || '');
+        if (data.location) {
+          setLocation(data.location);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch business profile', err);
@@ -58,24 +73,66 @@ export default function BusinessProfileScreen() {
     fetchProfile();
   }, [profile]);
 
-  const handleOpenEdit = () => {
-    setEditHours(JSON.parse(JSON.stringify(hours))); // deep copy
-    setModalVisible(true);
+  const handleOpenEditDetails = () => {
+    setEditCategory(category);
+    // Default to some central location if none set
+    setEditLocation(location || { latitude: 48.1486, longitude: 17.1077 }); // Bratislava default
+    setDetailsModalVisible(true);
   };
 
-  const handleSave = async () => {
-    if (!profile?.uid) return;
+  const handleSaveHours = async () => {
+    if (!profile?.id) return;
     setSaving(true);
     try {
       const { error } = await supabase
         .from('business_profiles')
-        .upsert({ id: profile.uid, working_hours: editHours });
+        .upsert({ id: profile.id, working_hours: editHours });
         
       if (error) throw error;
       setHours(editHours);
       setModalVisible(false);
+      Alert.alert('Success', 'Working hours updated successfully.');
     } catch (err) {
       console.error('Failed to save working hours', err);
+      Alert.alert('Error', 'Failed to save working hours. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveDetails = async () => {
+    if (!profile?.id) return;
+    setSaving(true);
+    try {
+      // 1. Update business_profiles
+      const { error: profileError } = await supabase
+        .from('business_profiles')
+        .upsert({ 
+          id: profile.id, 
+          category: editCategory, 
+          location: editLocation 
+        });
+        
+      if (profileError) throw profileError;
+
+      // 2. Cascade update to all services so they appear on map
+      const { error: servicesError } = await supabase
+        .from('services')
+        .update({ 
+          category: editCategory, 
+          location: editLocation 
+        })
+        .eq('business_id', profile.id);
+
+      if (servicesError) throw servicesError;
+      
+      setCategory(editCategory);
+      setLocation(editLocation);
+      setDetailsModalVisible(false);
+      Alert.alert('Success', 'Business details updated successfully.');
+    } catch (err) {
+      console.error('Failed to save business details', err);
+      Alert.alert('Error', 'Failed to save business details. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -117,10 +174,35 @@ export default function BusinessProfileScreen() {
           </View>
         </View>
 
+        {/* Business Details Section */}
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, { color: C.text }]}>Business Details</Text>
+          <TouchableOpacity onPress={handleOpenEditDetails} style={styles.editBtn}>
+            <Ionicons name="pencil" size={16} color={Palette.accent} />
+            <Text style={styles.editBtnText}>Edit</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={[styles.detailsCard, { backgroundColor: C.surface, borderColor: C.border }]}>
+          <View style={[styles.detailRow, { borderBottomColor: C.border, borderBottomWidth: StyleSheet.hairlineWidth }]}>
+            <Text style={[styles.detailLabel, { color: C.textSecondary }]}>Category</Text>
+            <Text style={[styles.detailValue, { color: C.text }]}>{category || 'Not set'}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={[styles.detailLabel, { color: C.textSecondary }]}>Location</Text>
+            <Text style={[styles.detailValue, { color: C.text }]} numberOfLines={1}>
+              {location ? `${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}` : 'Not set'}
+            </Text>
+          </View>
+        </View>
+
         {/* Working Hours Section */}
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: C.text }]}>Working Hours</Text>
-          <TouchableOpacity onPress={handleOpenEdit} style={styles.editBtn}>
+          <TouchableOpacity onPress={() => {
+            setEditHours(JSON.parse(JSON.stringify(hours)));
+            setModalVisible(true);
+          }} style={styles.editBtn}>
             <Ionicons name="pencil" size={16} color={Palette.accent} />
             <Text style={styles.editBtnText}>Edit</Text>
           </TouchableOpacity>
@@ -209,13 +291,88 @@ export default function BusinessProfileScreen() {
 
               <TouchableOpacity 
                 style={[styles.saveButton, { backgroundColor: Palette.accent }, saving && { opacity: 0.6 }]} 
-                onPress={handleSave}
+                onPress={handleSaveHours}
                 disabled={saving}
               >
                 {saving ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <Text style={styles.saveText}>Save Changes</Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Edit Details Modal */}
+      <Modal visible={detailsModalVisible} animationType="slide" transparent>
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+          style={styles.modalOverlay}
+        >
+          <View style={[styles.modalOverlayBg, { backgroundColor: 'rgba(0,0,0,0.6)' }]} />
+          <View style={[styles.modalContent, { backgroundColor: C.backgroundSecondary, height: '90%' }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: C.border }]}>
+              <Text style={[styles.modalTitle, { color: C.text }]}>Edit Business Details</Text>
+              <TouchableOpacity onPress={() => setDetailsModalVisible(false)} style={{ padding: Spacing.sm }}>
+                <Ionicons name="close" size={24} color={C.text} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView contentContainerStyle={styles.modalBody}>
+              <Text style={[styles.fieldLabel, { color: C.textSecondary }]}>Business Category</Text>
+              <View style={styles.categoryGrid}>
+                {Strings.map.categories.map((cat) => (
+                  <TouchableOpacity 
+                    key={cat} 
+                    style={[
+                      styles.categoryLabel, 
+                      { backgroundColor: C.surface, borderColor: C.border },
+                      editCategory === cat && { backgroundColor: Palette.accent, borderColor: Palette.accent }
+                    ]}
+                    onPress={() => setEditCategory(cat)}
+                  >
+                    <Text style={[styles.categoryLabelText, { color: C.text }, editCategory === cat && { color: '#fff' }]}>
+                      {cat}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={[styles.fieldLabel, { color: C.textSecondary, marginTop: Spacing.xl }]}>Location (Drag to adjust)</Text>
+              <View style={[styles.mapContainer, { borderColor: C.border }]}>
+                 <MapView
+                    provider={PROVIDER_DEFAULT}
+                    style={styles.map}
+                    initialRegion={{
+                      latitude: editLocation?.latitude || 48.1486,
+                      longitude: editLocation?.longitude || 17.1077,
+                      latitudeDelta: 0.01,
+                      longitudeDelta: 0.01,
+                    }}
+                    onPress={(e) => setEditLocation(e.nativeEvent.coordinate)}
+                 >
+                    {editLocation && (
+                      <Marker 
+                        coordinate={editLocation} 
+                        draggable
+                        onDragEnd={(e) => setEditLocation(e.nativeEvent.coordinate)}
+                        pinColor={Palette.accent}
+                      />
+                    )}
+                 </MapView>
+              </View>
+
+              <TouchableOpacity 
+                style={[styles.saveButton, { backgroundColor: Palette.accent }, saving && { opacity: 0.6 }]} 
+                onPress={handleSaveDetails}
+                disabled={saving}
+              >
+                {saving ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.saveText}>Save Details</Text>
                 )}
               </TouchableOpacity>
             </ScrollView>
@@ -229,7 +386,7 @@ export default function BusinessProfileScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: Spacing.xl },
   header: { fontSize: Typography.size['2xl'], fontWeight: Typography.weight.bold, marginBottom: Spacing.xl, paddingTop: Spacing.lg },
-  profileHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing['3xl'] },
+  profileHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing['2xl'] },
   avatarPlaceholder: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center', marginRight: Spacing.lg },
   profileInfo: { flex: 1 },
   name: { fontSize: Typography.size.title, fontWeight: Typography.weight.bold, marginBottom: Spacing.xs },
@@ -238,7 +395,11 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: Typography.size.lg, fontWeight: '700' },
   editBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, padding: Spacing.sm },
   editBtnText: { color: Palette.accent, fontWeight: '600' },
-  hoursCard: { borderRadius: Radius.lg, borderWidth: 1, marginBottom: Spacing['3xl'] },
+  detailsCard: { borderRadius: Radius.lg, borderWidth: 1, marginBottom: Spacing['2xl'], overflow: 'hidden' },
+  detailRow: { flexDirection: 'row', justifyContent: 'space-between', padding: Spacing.lg, alignItems: 'center' },
+  detailLabel: { fontSize: Typography.size.body, fontWeight: '500' },
+  detailValue: { fontSize: Typography.size.body, fontWeight: '600' },
+  hoursCard: { borderRadius: Radius.lg, borderWidth: 1, marginBottom: Spacing['2xl'] },
   hourRow: { flexDirection: 'row', justifyContent: 'space-between', padding: Spacing.lg },
   dayText: { fontSize: Typography.size.md, fontWeight: '500' },
   timeText: { fontSize: Typography.size.md },
@@ -249,15 +410,21 @@ const styles = StyleSheet.create({
   // Modal
   modalOverlay: { flex: 1, justifyContent: 'flex-end' },
   modalOverlayBg: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
-  modalContent: { borderTopLeftRadius: Radius['2xl'], borderTopRightRadius: Radius['2xl'], maxHeight: '85%' },
+  modalContent: { borderTopLeftRadius: Radius['2xl'], borderTopRightRadius: Radius['2xl'], maxHeight: '90%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: Spacing.lg, borderBottomWidth: StyleSheet.hairlineWidth },
   modalTitle: { fontSize: Typography.size.lg, fontWeight: '700' },
   modalBody: { padding: Spacing.xl },
+  fieldLabel: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1, marginBottom: Spacing.md },
+  categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  categoryLabel: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 100, borderWidth: 1 },
+  categoryLabelText: { fontSize: 14, fontWeight: '500' },
+  mapContainer: { height: 250, borderRadius: Radius.lg, overflow: 'hidden', borderWidth: 1, marginTop: Spacing.sm, marginBottom: Spacing.xl },
+  map: { flex: 1 },
   editRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.xl },
   dayToggle: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flex: 1 },
   editDayText: { fontSize: Typography.size.md, fontWeight: '500' },
   editTimes: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   timePicker: { borderWidth: 1, borderRadius: Radius.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
-  saveButton: { backgroundColor: Palette.accent, padding: Spacing.xl, borderRadius: Radius.lg, alignItems: 'center', marginTop: Spacing.xl },
+  saveButton: { backgroundColor: Palette.accent, padding: Spacing.xl, borderRadius: Radius.lg, alignItems: 'center', marginTop: Spacing.xs },
   saveText: { color: '#fff', fontSize: Typography.size.md, fontWeight: '600' }
 });

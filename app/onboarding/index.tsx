@@ -21,18 +21,18 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const AUTO_SCROLL_INTERVAL = 4000;
 const slides = Strings.onboarding.slides;
-const SLIDE_IMAGES: any[] = [
-    require('@/assets/images/onboarding_illustration_calendar_1772980389720.png'),
-    require('@/assets/images/onboarding_illustration_map_1772980403981.png'),
-    require('@/assets/images/onboarding_illustration_checkmark_1772980420252.png')
+const SLIDE_ICONS: (keyof typeof Ionicons.glyphMap)[] = [
+    'calendar',
+    'map',
+    'checkmark-circle'
 ];
 
 function SlideItem({ item, index, C }: { item: typeof slides[number]; index: number; C: ReturnType<typeof useThemeColors> }) {
-    const slideImage = SLIDE_IMAGES[index];
+    const slideIcon = SLIDE_ICONS[index];
     return (
         <View style={[styles.slide, { width: SCREEN_WIDTH }]}>
-            <View style={styles.imageWrap}>
-                {slideImage && <Image source={slideImage} style={styles.slideImage} resizeMode="contain" />}
+            <View style={[styles.imageWrap, { backgroundColor: C.backgroundSecondary, borderRadius: Radius['3xl'] }]}>
+                <Ionicons name={slideIcon} size={80} color={Palette.accent} />
             </View>
             <Text style={[styles.slideTitle, { color: C.text }]}>{item.title}</Text>
             <Text style={[styles.slideSubtitle, { color: C.textSecondary }]}>{item.subtitle}</Text>

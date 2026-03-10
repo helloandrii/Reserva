@@ -21,7 +21,7 @@ import { GlassSearchBar } from '@/components/GlassSearchBar';
 import { MapPin } from '@/components/MapPin';
 import { Strings } from '@/constants/strings';
 import { Palette, Radius, Spacing, Typography } from '@/constants/theme';
-import { MapPoint, fetchMapPoints } from '@/firebase/mapServices';
+import { MapPoint, fetchMapPoints } from '@/src/services/mapServices';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useThemeColors } from '@/hooks/useThemeColors';
 
@@ -94,12 +94,12 @@ export default function MapScreen() {
 
     useEffect(() => {
         let mounted = true;
-        fetchMapPoints(selectedCategory, sortFilter, debouncedSearch).then(data => {
+        fetchMapPoints(selectedCategory, sortFilter, debouncedSearch).then((data: MapPoint[]) => {
             if (mounted) {
                 setPoints(data);
                 
                 // If the currently selected pin is no longer in the results, drop the selection
-                if (selectedServiceId && !data.some(p => p.id === selectedServiceId)) {
+                if (selectedServiceId && !data.some((p: MapPoint) => p.id === selectedServiceId)) {
                     setSelectedServiceId(null);
                 }
 
@@ -107,7 +107,7 @@ export default function MapScreen() {
                     // Only auto-center if we're filtering by a specific category OR actively searching
                     if (selectedCategory || debouncedSearch.trim() !== '') {
                          mapRef.current.fitToCoordinates(
-                             data.map(p => ({ latitude: p.latitude, longitude: p.longitude })),
+                             data.map((p: MapPoint) => ({ latitude: p.latitude, longitude: p.longitude })),
                              { edgePadding: { top: 150, right: 50, bottom: 250, left: 50 }, animated: true }
                          );
                     }

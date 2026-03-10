@@ -1,0 +1,22 @@
+﻿app.tsx(22,55): error TS2339: Property 'message' does not exist on type '{}'.
+app/(business-tabs)/index.tsx(42,35): error TS2339: Property 'uid' does not exist on type 'User'.
+app/(business-tabs)/index.tsx(50,35): error TS2339: Property 'uid' does not exist on type 'User'.
+app/(business-tabs)/index.tsx(58,35): error TS2339: Property 'uid' does not exist on type 'User'.
+app/(business-tabs)/services.tsx(52,33): error TS2339: Property 'uid' does not exist on type 'User'.
+app/(business-tabs)/services.tsx(81,27): error TS2339: Property 'uid' does not exist on type 'User'.
+app/(tabs)/bookings.tsx(58,35): error TS2339: Property 'uid' does not exist on type 'User'.
+app/(tabs)/bookings.tsx(74,43): error TS2339: Property 'uid' does not exist on type 'User'.
+app/(tabs)/bookings.tsx(316,38): error TS2339: Property 'uid' does not exist on type 'User'.
+app/(tabs)/bookings.tsx(381,73): error TS2339: Property 'uid' does not exist on type 'User'.
+app/(tabs)/index.tsx(24,42): error TS2307: Cannot find module '@/firebase/mapServices' or its corresponding type declarations.
+app/(tabs)/index.tsx(97,76): error TS7006: Parameter 'data' implicitly has an 'any' type.
+app/(tabs)/index.tsx(102,53): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/(tabs)/index.tsx(110,39): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/(tabs)/profile.tsx(19,37): error TS2339: Property 'promptGoogleSignIn' does not exist on type 'AuthContextValue'.
+app/login.tsx(19,28): error TS2339: Property 'promptGoogleSignIn' does not exist on type 'AuthContextValue'.
+app/service/[id].tsx(17,45): error TS2307: Cannot find module '@/firebase/mapServices' or its corresponding type declarations.
+app/service/[id].tsx(34,37): error TS7006: Parameter 'data' implicitly has an 'any' type.
+app/service/[id].tsx(218,35): error TS2339: Property 'xxl' does not exist on type '{ readonly xs: 11; readonly sm: 13; readonly md: 15; readonly lg: 17; readonly xl: 20; readonly '2xl': 24; readonly '3xl': 28; readonly '4xl': 34; readonly caption: 13; readonly body: 15; readonly title: 17; readonly heading: 24; readonly display: 34; }'.
+components/ui/collapsible.tsx(24,51): error TS2339: Property 'icon' does not exist on type '{ readonly background: "#FFFFFF"; readonly backgroundSecondary: "#FAFAFA"; readonly backgroundTertiary: "#F5F5F5"; readonly surface: "#FFFFFF"; readonly surfaceElevated: "#FFFFFF"; ... 13 more ...; readonly info: "#0A84FF"; }'.
+components/ui/collapsible.tsx(24,70): error TS2339: Property 'icon' does not exist on type '{ readonly background: "#000000"; readonly backgroundSecondary: "#1C1C1E"; readonly backgroundTertiary: "#2C2C2E"; readonly surface: "#1C1C1E"; readonly surfaceElevated: "#2C2C2E"; ... 13 more ...; readonly info: "#0A84FF"; }'.
+utils/supabase.ts(4,24): error TS2305: Module '"@supabase/supabase-js"' has no exported member 'processLock'.

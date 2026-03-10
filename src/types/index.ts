@@ -3,7 +3,8 @@
  * All screens and services import types from here.
  */
 
-import type { Timestamp } from 'firebase/firestore';
+// Using string to represent Supabase's ISO 8601 timestamps
+export type Timestamp = string;
 
 // ─── User / Auth ──────────────────────────────────────────────────────────────
 

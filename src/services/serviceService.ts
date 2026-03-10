@@ -1,23 +1,10 @@
 /**
- * Service service — Firestore queries for the services/ collection.
+ * Service service — Supabase queries for the services table.
  */
 
-import {
-    collection,
-    doc,
-    getDoc,
-    getDocs,
-    limit,
-    orderBy,
-    query,
-    QueryDocumentSnapshot,
-    startAfter,
-    where,
-} from 'firebase/firestore';
-
-import { db } from '@/firebase/firestore';
 import type { GeoPoint, PaginatedResult, Service } from '@/src/types';
 import { haversineDistanceKm } from '@/src/utils/distance';
+import { supabase } from '@/utils/supabase';
 
 const SERVICES = 'services';
 const PAGE_SIZE = 20;
@@ -25,56 +12,66 @@ const PAGE_SIZE = 20;
 // ── Fetch ─────────────────────────────────────────────────────────────────────
 
 export async function getServiceById(id: string): Promise<Service | null> {
-    const snap = await getDoc(doc(db, SERVICES, id));
-    if (!snap.exists()) return null;
-    return { id: snap.id, ...snap.data() } as Service;
+    const { data, error } = await supabase.from(SERVICES).select('*').eq('id', id).single();
+    if (error || !data) return null;
+    return data as Service;
 }
 
 export async function getServices(
-    lastDoc?: QueryDocumentSnapshot,
+    pageOffset = 0,
 ): Promise<PaginatedResult<Service>> {
-    const q = lastDoc
-        ? query(collection(db, SERVICES), where('isActive', '==', true), orderBy('name'), startAfter(lastDoc), limit(PAGE_SIZE))
-        : query(collection(db, SERVICES), where('isActive', '==', true), orderBy('name'), limit(PAGE_SIZE));
+    const from = pageOffset;
+    const to = from + PAGE_SIZE - 1;
 
-    const snap = await getDocs(q);
-    const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Service);
+    const { data } = await supabase
+        .from(SERVICES)
+        .select('*')
+        .eq('isActive', true)
+        .order('name')
+        .range(from, to);
+
+    const items = (data || []) as Service[];
     return {
         items,
-        hasMore: snap.docs.length === PAGE_SIZE,
-        lastDoc: snap.docs[snap.docs.length - 1] ?? null,
+        hasMore: items.length === PAGE_SIZE,
+        lastDoc: from + PAGE_SIZE, // Overloading lastDoc as the numeric offset
     };
 }
 
 export async function getPopularServices(count = 4): Promise<Service[]> {
-    const q = query(
-        collection(db, SERVICES),
-        where('isActive', '==', true),
-        orderBy('reviewCount', 'desc'),
-        limit(count),
-    );
-    const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Service);
+    const { data } = await supabase
+        .from(SERVICES)
+        .select('*')
+        .eq('isActive', true)
+        .order('reviewCount', { ascending: false })
+        .limit(count);
+        
+    return (data || []) as Service[];
 }
 
 export async function getServicesByCategory(
     categoryId: string,
-    lastDoc?: QueryDocumentSnapshot,
+    pageOffset = 0,
 ): Promise<PaginatedResult<Service>> {
-    const q = lastDoc
-        ? query(collection(db, SERVICES), where('categoryId', '==', categoryId), where('isActive', '==', true), startAfter(lastDoc), limit(PAGE_SIZE))
-        : query(collection(db, SERVICES), where('categoryId', '==', categoryId), where('isActive', '==', true), limit(PAGE_SIZE));
+    const from = pageOffset;
+    const to = from + PAGE_SIZE - 1;
 
-    const snap = await getDocs(q);
-    const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Service);
+    const { data } = await supabase
+        .from(SERVICES)
+        .select('*')
+        .eq('categoryId', categoryId)
+        .eq('isActive', true)
+        .range(from, to);
+
+    const items = (data || []) as Service[];
     return {
         items,
-        hasMore: snap.docs.length === PAGE_SIZE,
-        lastDoc: snap.docs[snap.docs.length - 1] ?? null,
+        hasMore: items.length === PAGE_SIZE,
+        lastDoc: from + PAGE_SIZE, // Overloading lastDoc as the numeric offset
     };
 }
 
-// ── Geo filtering (client-side, scalable with GeoFirestore later) ─────────────
+// ── Geo filtering (client-side) ─────────────
 
 export async function getNearbyServices(
     userLocation: GeoPoint,
@@ -82,18 +79,19 @@ export async function getNearbyServices(
     count = 20,
 ): Promise<Service[]> {
     // Fetch a broad set and filter client-side.
-    // TODO: replace with Geohash queries or GeoFirestore for scale.
-    const q = query(
-        collection(db, SERVICES),
-        where('isActive', '==', true),
-        limit(100),
-    );
-    const snap = await getDocs(q);
-    return snap.docs
-        .map((d) => {
-            const service = { id: d.id, ...d.data() } as Service;
-            service.distanceKm = haversineDistanceKm(userLocation, service.location);
-            return service;
+    // In a real Postgres environment we would use PostGIS for this.
+    const { data } = await supabase
+        .from(SERVICES)
+        .select('*')
+        .eq('isActive', true)
+        .limit(100);
+        
+    const items = (data || []) as Service[];
+
+    return items
+        .map((s) => {
+            s.distanceKm = haversineDistanceKm(userLocation, s.location);
+            return s;
         })
         .filter((s) => (s.distanceKm ?? Infinity) <= radiusKm)
         .sort((a, b) => (a.distanceKm ?? 0) - (b.distanceKm ?? 0))

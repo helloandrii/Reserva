@@ -55,7 +55,7 @@ function ProfileWidget() {
         if (!user || !editingField) return;
         setSaving(true);
         try {
-            await updateUser(user.uid, { [editingField]: editValue });
+            await updateUser(user.id, { [editingField]: editValue });
         } finally {
             setSaving(false);
             setEditingField(null);
@@ -71,7 +71,7 @@ function ProfileWidget() {
             quality: 0.8,
         });
         if (!result.canceled && result.assets[0]) {
-            await uploadProfilePhoto(user.uid, result.assets[0].uri);
+            await uploadProfilePhoto(user.id, result.assets[0].uri);
         }
     };
 
@@ -313,7 +313,7 @@ export default function BookingsScreen() {
     const { bookings, activeTab, loadingState, fetchBookings, cancelBooking, setActiveTab } = useBookingsStore();
 
     useEffect(() => {
-        if (user) fetchBookings(user.uid);
+        if (user) fetchBookings(user.id);
     }, [user, activeTab]);
 
     const tabs = [
@@ -378,7 +378,7 @@ export default function BookingsScreen() {
                     refreshControl={
                         <RefreshControl
                             refreshing={loadingState === 'loading'}
-                            onRefresh={() => user && fetchBookings(user.uid)}
+                            onRefresh={() => user && fetchBookings(user.id)}
                             tintColor={C.tint}
                         />
                     }

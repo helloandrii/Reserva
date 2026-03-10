@@ -2,12 +2,12 @@
  * Shared formatters for dates, times, currency, and phone numbers.
  */
 
-import type { Timestamp } from 'firebase/firestore';
+import type { Timestamp } from '@/src/types';
 
 // ── Date / Time ───────────────────────────────────────────────────────────────
 
 export function formatDate(ts: Timestamp | Date): string {
-    const d = ts instanceof Date ? ts : ts.toDate();
+    const d = typeof ts === 'string' ? new Date(ts) : ts;
     return d.toLocaleDateString('en-GB', {
         day: 'numeric',
         month: 'short',
@@ -16,7 +16,7 @@ export function formatDate(ts: Timestamp | Date): string {
 }
 
 export function formatTime(ts: Timestamp | Date): string {
-    const d = ts instanceof Date ? ts : ts.toDate();
+    const d = typeof ts === 'string' ? new Date(ts) : ts;
     return d.toLocaleTimeString('en-GB', {
         hour: '2-digit',
         minute: '2-digit',
@@ -28,7 +28,7 @@ export function formatDateTime(ts: Timestamp | Date): string {
 }
 
 export function formatRelativeDate(ts: Timestamp | Date): string {
-    const d = ts instanceof Date ? ts : ts.toDate();
+    const d = typeof ts === 'string' ? new Date(ts) : ts;
     const now = new Date();
     const diff = now.getTime() - d.getTime();
     const days = Math.floor(diff / 86400000);

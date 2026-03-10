@@ -1,29 +1,19 @@
 /**
- * User service — Firestore operations for the users/ collection.
+ * User service — Supabase operations for the users table and storage bucket.
  * All profile reads and writes go through this module.
  */
 
-import {
-    deleteDoc,
-    doc,
-    getDoc,
-    serverTimestamp,
-    updateDoc,
-} from 'firebase/firestore';
-import { deleteObject, getDownloadURL, ref, uploadBytes } from 'firebase/storage';
-
-import { db } from '@/firebase/firestore';
-import { storage } from '@/firebase/storage';
 import type { UserProfile } from '@/src/types';
+import { supabase } from '@/utils/supabase';
 
 const USERS = 'users';
 
 // ── Read ──────────────────────────────────────────────────────────────────────
 
 export async function getUser(uid: string): Promise<UserProfile | null> {
-    const snap = await getDoc(doc(db, USERS, uid));
-    if (!snap.exists()) return null;
-    return snap.data() as UserProfile;
+    const { data, error } = await supabase.from(USERS).select('*').eq('id', uid).single();
+    if (error || !data) return null;
+    return data as UserProfile;
 }
 
 // ── Write ─────────────────────────────────────────────────────────────────────
@@ -32,10 +22,8 @@ export async function updateUser(
     uid: string,
     updates: Partial<Omit<UserProfile, 'uid' | 'createdAt'>>,
 ): Promise<void> {
-    await updateDoc(doc(db, USERS, uid), {
-        ...updates,
-        updatedAt: serverTimestamp(),
-    });
+    const payload = { ...updates, updatedAt: new Date().toISOString() };
+    await supabase.from(USERS).update(payload).eq('id', uid);
 }
 
 // ── Profile photo ─────────────────────────────────────────────────────────────
@@ -45,23 +33,26 @@ export async function uploadProfilePhoto(
     localUri: string,
 ): Promise<string> {
     const blob = await uriToBlob(localUri);
-    const storageRef = ref(storage, `users/${uid}/profile.jpg`);
-    await uploadBytes(storageRef, blob, { contentType: 'image/jpeg' });
-    const downloadURL = await getDownloadURL(storageRef);
-    await updateUser(uid, { photoURL: downloadURL });
-    return downloadURL;
+    // You must create a 'profiles' bucket in Supabase for this to work
+    const fileName = `users/${uid}/profile.jpg`;
+    
+    await supabase.storage.from('profiles').upload(fileName, blob, { upsert: true, contentType: 'image/jpeg' });
+    const { data } = supabase.storage.from('profiles').getPublicUrl(fileName);
+    
+    await updateUser(uid, { photoURL: data.publicUrl });
+    return data.publicUrl;
 }
 
 export async function deleteProfilePhoto(uid: string): Promise<void> {
-    const storageRef = ref(storage, `users/${uid}/profile.jpg`);
-    await deleteObject(storageRef).catch(() => {/* ignore if not found */ });
+    const fileName = `users/${uid}/profile.jpg`;
+    await supabase.storage.from('profiles').remove([fileName]);
     await updateUser(uid, { photoURL: null });
 }
 
 // ── Account ───────────────────────────────────────────────────────────────────
 
 export async function deleteUser(uid: string): Promise<void> {
-    await deleteDoc(doc(db, USERS, uid));
+    await supabase.from(USERS).delete().eq('id', uid);
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

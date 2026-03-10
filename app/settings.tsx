@@ -13,7 +13,7 @@ import { useState } from 'react';
 export default function SettingsScreen() {
     const insets = useSafeAreaInsets();
     const router = useRouter();
-    const { user, profile } = useAuth();
+    const { user, profile, signOut } = useAuth();
     const C = useThemeColors();
     const isDark = useColorScheme() === 'dark';
 
@@ -85,7 +85,11 @@ export default function SettingsScreen() {
 
                 {/* Danger Zone */}
                 {user ? (
-                    <TouchableOpacity style={[styles.signOutBtn, { backgroundColor: C.surface, borderColor: C.border }]} activeOpacity={0.7}>
+                    <TouchableOpacity 
+                        style={[styles.signOutBtn, { backgroundColor: C.surface, borderColor: C.border }]} 
+                        activeOpacity={0.7}
+                        onPress={signOut}
+                    >
                         <Ionicons name="log-out-outline" size={20} color={Palette.error} />
                         <Text style={[styles.signOutText, { color: Palette.error }]}>Sign Out</Text>
                     </TouchableOpacity>

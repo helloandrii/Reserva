@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/context/AuthContext';
 
 export default function ProfileScreen() {
-    const { user, profile, loading, promptGoogleSignIn, signOut } = useAuth();
+    const { user, profile, loading, signOut } = useAuth();
     const insets = useSafeAreaInsets();
     const [signingIn, setSigningIn] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -46,7 +46,7 @@ export default function ProfileScreen() {
         setError(null);
         setSigningIn(true);
         try {
-            await promptGoogleSignIn();
+            alert('Google authentication will be available soon.');
         } catch {
             setError('Sign-in failed. Please try again.');
         } finally {

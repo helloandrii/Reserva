@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
+    Alert,
     Animated,
     Platform,
     StyleSheet,
@@ -21,7 +22,7 @@ export default function AuthScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const C = useThemeColors();
-    const { promptGoogleSignIn, skipAuthDev } = useAuth();
+    const { skipAuthDev } = useAuth();
     const [signingIn, setSigningIn] = useState<'google' | 'apple' | null>(null);
     const [error, setError] = useState<string | null>(null);
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -37,15 +38,7 @@ export default function AuthScreen() {
     }, []);
 
     const handleGoogle = async () => {
-        setError(null);
-        setSigningIn('google');
-        try {
-            await promptGoogleSignIn();
-        } catch {
-            setError('Sign-in failed. Please try again.');
-        } finally {
-            setSigningIn(null);
-        }
+        Alert.alert('Coming Soon', 'Google Sign-In is being migrated to Supabase and will be available shortly.');
     };
 
     // TODO: remove before release
@@ -86,21 +79,16 @@ export default function AuthScreen() {
                 <View style={styles.buttons}>
                     {/* Google */}
                     <TouchableOpacity
-                        style={[styles.authButton, styles.googleButton, signingIn && styles.buttonDisabled]}
+                        style={[styles.authButton, styles.googleButton]}
                         activeOpacity={0.82}
                         onPress={handleGoogle}
-                        disabled={!!signingIn}
                     >
-                        {signingIn === 'google' ? (
-                            <ActivityIndicator size="small" color="#111" />
-                        ) : (
-                            <>
-                                <View style={styles.googleLogo}>
-                                    <Text style={styles.googleG}>G</Text>
-                                </View>
-                                <Text style={styles.googleText}>{auth.google}</Text>
-                            </>
-                        )}
+                        <>
+                            <View style={styles.googleLogo}>
+                                <Text style={styles.googleG}>G</Text>
+                            </View>
+                            <Text style={styles.googleText}>{auth.google}</Text>
+                        </>
                     </TouchableOpacity>
 
                     {/* Apple */}

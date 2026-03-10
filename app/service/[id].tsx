@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { MapPoint, getServiceDetails } from '@/firebase/mapServices';
+import { MapPoint, getServiceDetails } from '@/src/services/mapServices';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { Palette, Radius, Spacing, Typography } from '@/constants/theme';
@@ -31,7 +31,7 @@ export default function ServiceDetailsScreen() {
 
     useEffect(() => {
         if (!id) return;
-        getServiceDetails(id).then((data) => {
+        getServiceDetails(id).then((data: MapPoint | null) => {
             setService(data);
             setLoading(false);
         });
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
         marginBottom: Spacing.xs,
     },
     title: {
-        fontSize: Typography.size.xxl,
+        fontSize: Typography.size['2xl'],
         fontWeight: Typography.weight.bold,
         marginBottom: 4,
     },

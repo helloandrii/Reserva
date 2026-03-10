@@ -16,7 +16,12 @@ export default function EmailScreen() {
     const [email, setEmail] = useState('');
 
     const handleContinue = () => {
-        if (email) router.push('/onboarding/password');
+        if (email) {
+            router.push({
+                pathname: '/onboarding/password',
+                params: { email }
+            });
+        }
     };
 
     const handleSkip = async () => {

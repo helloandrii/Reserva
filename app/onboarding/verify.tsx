@@ -1,24 +1,49 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Palette, Radius, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { supabase } from '@/utils/supabase';
 
 export default function VerifyScreen() {
     const router = useRouter();
+    const { email } = useLocalSearchParams<{ email: string }>();
     const insets = useSafeAreaInsets();
     const C = useThemeColors();
     const { completeOnboarding } = useAuth();
+
     const [code, setCode] = useState('');
+    const [loading, setLoading] = useState(false);
 
     const handleContinue = async () => {
-        if (code.length === 6) {
-            await completeOnboarding();
-            router.replace('/(tabs)');
+        if (code.length !== 6 || !email) return;
+        setLoading(true);
+
+        try {
+            const { data, error } = await supabase.auth.verifyOtp({
+                email,
+                token: code,
+                type: 'signup',
+            });
+
+            if (error) {
+                Alert.alert('Verification Failed', error.message);
+                return;
+            }
+
+            if (data.session) {
+                // Successfully verified and logged in
+                await completeOnboarding();
+                router.replace('/(tabs)');
+            }
+        } catch (err: any) {
+            Alert.alert('Error', err.message);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -30,7 +55,7 @@ export default function VerifyScreen() {
     return (
         <View style={[styles.container, { backgroundColor: C.background, paddingTop: insets.top + 16, paddingBottom: Math.max(insets.bottom, 24) }]}>
             <View style={styles.header}>
-                <TouchableOpacity style={[styles.backButton, { backgroundColor: C.backgroundSecondary }]} onPress={() => router.back()}>
+                <TouchableOpacity style={[styles.backButton, { backgroundColor: C.backgroundSecondary }]} onPress={() => router.back()} disabled={loading}>
                     <Ionicons name="chevron-back" size={22} color={C.text} />
                 </TouchableOpacity>
             </View>
@@ -54,11 +79,15 @@ export default function VerifyScreen() {
                 </View>
 
                 <TouchableOpacity
-                    style={[styles.continueButton, { backgroundColor: code.length === 6 ? Palette.accent : C.border }]}
-                    disabled={code.length < 6}
+                    style={[styles.continueButton, { backgroundColor: code.length === 6 ? Palette.accent : C.border }, loading && { opacity: 0.7 }]}
+                    disabled={code.length < 6 || loading}
                     onPress={handleContinue}
                 >
-                    <Text style={styles.continueText}>Verify & Continue</Text>
+                    {loading ? (
+                        <ActivityIndicator color="#fff" />
+                    ) : (
+                        <Text style={styles.continueText}>Verify & Continue</Text>
+                    )}
                 </TouchableOpacity>
             </View>
 

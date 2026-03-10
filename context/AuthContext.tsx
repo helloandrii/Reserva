@@ -1,22 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
-import {
-    signOut as firebaseSignOut,
-    GoogleAuthProvider,
-    onAuthStateChanged,
-    signInWithCredential,
-    User,
-} from 'firebase/auth';
-import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { User } from '@supabase/supabase-js';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-import { auth } from '@/firebase/auth';
-import { db } from '@/firebase/firestore';
 import type { UserProfile } from '@/src/types';
 import { logger } from '@/src/utils/logger';
-
-WebBrowser.maybeCompleteAuthSession();
+import { supabase } from '@/utils/supabase';
 
 const PROFILE_CACHE_KEY = 'reserva_user_profile';
 const ONBOARDING_KEY = 'reserva_onboarding_complete';
@@ -29,7 +17,6 @@ interface AuthContextValue {
     loading: boolean;
     onboardingComplete: boolean;
     onboardingChecked: boolean;
-    promptGoogleSignIn: () => Promise<void>;
     signOut: () => Promise<void>;
     completeOnboarding: () => Promise<void>;
     skipAuthDev: () => Promise<void>;
@@ -71,12 +58,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         })();
     }, []);
 
-    const [, response, promptAsync] = Google.useAuthRequest({
-        webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-        iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-        androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-    });
-
     // Load cached profile on startup for instant display
     useEffect(() => {
         AsyncStorage.getItem(PROFILE_CACHE_KEY)
@@ -88,73 +69,63 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .catch((e) => logger.warn('Auth', 'Cache load failed', e));
     }, []);
 
-    // Handle Google OAuth response
+    // Listen to Supabase auth state
     useEffect(() => {
-        if (response?.type !== 'success') return;
-        const idToken = response.params?.id_token;
-        const accessToken = response.params?.access_token ?? response.authentication?.accessToken;
-        if (!idToken && !accessToken) {
-            logger.warn('Auth', 'Google response success but no token found');
-            return;
-        }
-        const credential = GoogleAuthProvider.credential(idToken ?? null, accessToken ?? null);
-        signInWithCredential(auth, credential).catch((e) => logger.error('Auth', 'signInWithCredential failed', e));
-    }, [response]);
-
-    // Listen to Firebase auth state
-    useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-            setUser(firebaseUser);
-            if (firebaseUser) {
-                await syncUserProfile(firebaseUser);
-                await completeOnboarding(); // auto-mark onboarding done on sign-in
-            } else {
-                setProfile(null);
-                await AsyncStorage.removeItem(PROFILE_CACHE_KEY);
-            }
-            setLoading(false);
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            handleSession(session?.user ?? null);
         });
-        return unsubscribe;
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            handleSession(session?.user ?? null);
+        });
+
+        return () => subscription.unsubscribe();
     }, []);
 
-    // Sync / create Firestore user document
-    async function syncUserProfile(firebaseUser: User) {
-        try {
-            const ref = doc(db, 'users', firebaseUser.uid);
-            const snap = await getDoc(ref);
-            let resolvedProfile: UserProfile;
+    async function handleSession(supabaseUser: User | null) {
+        setUser(supabaseUser);
+        
+        if (supabaseUser) {
+            await syncUserProfile(supabaseUser);
+            await completeOnboarding(); // auto-mark onboarding done on sign-in
+        } else {
+            setProfile(null);
+            await AsyncStorage.removeItem(PROFILE_CACHE_KEY);
+        }
+        setLoading(false);
+    }
 
-            if (!snap.exists()) {
-                const intendedRole = await AsyncStorage.getItem('reserva_intended_role');
-                resolvedProfile = {
-                    uid: firebaseUser.uid,
-                    displayName: firebaseUser.displayName ?? 'User',
-                    email: firebaseUser.email,
-                    photoURL: firebaseUser.photoURL,
-                    phoneNumber: null,
-                    role: intendedRole === 'business' ? 'business' : 'user',
-                    usedServicesCount: 0,
-                    savedServiceIds: [],
-                    createdAt: null,
-                    updatedAt: null,
-                };
-                await setDoc(ref, { ...resolvedProfile, createdAt: serverTimestamp() });
-                await AsyncStorage.removeItem('reserva_intended_role'); // Clean up
-            } else {
-                const data = snap.data();
-                resolvedProfile = {
-                    uid: firebaseUser.uid,
-                    displayName: data.displayName ?? firebaseUser.displayName ?? 'User',
-                    email: data.email ?? firebaseUser.email,
-                    photoURL: data.photoURL ?? firebaseUser.photoURL,
-                    phoneNumber: data.phoneNumber ?? null,
-                    role: data.role ?? 'user',
-                    usedServicesCount: data.usedServicesCount ?? 0,
-                    savedServiceIds: data.savedServiceIds ?? [],
-                    createdAt: data.createdAt ?? null,
-                    updatedAt: data.updatedAt ?? null,
-                };
+    // Build the user profile out of Supabase User Metadata
+    async function syncUserProfile(supabaseUser: User) {
+        try {
+            // Check if there is a pending intended role from signup
+            const intendedRole = await AsyncStorage.getItem('reserva_intended_role');
+            let role = supabaseUser.user_metadata?.role;
+            
+            // If they just signed up and we have an intended role, save it to their metadata
+            if (intendedRole && !role) {
+                role = intendedRole === 'business' ? 'business' : 'user';
+                await supabase.auth.updateUser({
+                    data: { role }
+                });
+                await AsyncStorage.removeItem('reserva_intended_role');
+            } else if (!role) {
+                // Fallback
+                role = 'user';
             }
+
+            const resolvedProfile: UserProfile = {
+                uid: supabaseUser.id, // mapping Supabase ID to Firebase UID field to maintain compatibility
+                displayName: supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name || 'User',
+                email: supabaseUser.email || null,
+                photoURL: supabaseUser.user_metadata?.avatar_url || null,
+                phoneNumber: supabaseUser.phone || null,
+                role: role,
+                usedServicesCount: 0, // In Supabase, you might compute this separately or store in a public users table
+                savedServiceIds: [],
+                createdAt: supabaseUser.created_at ?? null,
+                updatedAt: supabaseUser.updated_at ?? null,
+            };
 
             setProfile(resolvedProfile);
             await AsyncStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(resolvedProfile));
@@ -163,15 +134,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     }
 
-    const promptGoogleSignIn = async () => {
-        await promptAsync();
-    };
-
     const signOut = async () => {
-        await firebaseSignOut(auth);
+        await supabase.auth.signOut();
         await AsyncStorage.removeItem(PROFILE_CACHE_KEY);
+        await AsyncStorage.removeItem(ONBOARDING_KEY);
         setUser(null);
         setProfile(null);
+        setOnboardingComplete(false);
     };
 
     const completeOnboarding = async () => {
@@ -198,7 +167,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     return (
-        <AuthContext.Provider value={{ user, profile, loading, onboardingComplete, onboardingChecked, promptGoogleSignIn, signOut, completeOnboarding, skipAuthDev }}>
+        <AuthContext.Provider value={{ user, profile, loading, onboardingComplete, onboardingChecked, signOut, completeOnboarding, skipAuthDev }}>
             {children}
         </AuthContext.Provider>
     );

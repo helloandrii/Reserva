@@ -18,7 +18,7 @@ export default function App() {
         if (todos && todos.length > 0) {
           setTodos(todos);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error fetching todos:', error?.message || error);
       }
     };

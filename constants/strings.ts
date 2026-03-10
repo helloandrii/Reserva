@@ -45,8 +45,8 @@ export const Strings = {
             privacyLink: 'Privacy Policy',
         },
         business: {
-            heading: 'Business side coming soon',
-            subtitle: 'We\'re working on tools for businesses. Stay tuned!',
+            heading: 'Set up your business',
+            subtitle: 'Manage your services, bookings, and profile all in one place.',
         },
     },
 

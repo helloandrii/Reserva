@@ -15,7 +15,7 @@ import { ToastProvider } from '@/src/components/Toast';
 const DEV_ALWAYS_SHOW_ONBOARDING = true;
 
 function NavigationGuard() {
-  const { loading, onboardingComplete, onboardingChecked } = useAuth();
+  const { loading, onboardingComplete, onboardingChecked, profile } = useAuth();
   const router = useRouter();
   const segments = useSegments();
 
@@ -29,6 +29,7 @@ function NavigationGuard() {
     const inLegal = segments[0] === 'legal';
     const inSettings = segments[0] === 'settings';
     const inTabs = segments[0] === '(tabs)';
+    const inBusinessTabs = segments[0] === '(business-tabs)';
 
     if (inLegal || inSettings) return;
 
@@ -40,10 +41,14 @@ function NavigationGuard() {
       // Keep user inside onboarding flow
       if (!inOnboarding) router.replace('/onboarding' as any);
     } else {
-      // Onboarding done — let them into the app
-      if (!inTabs) router.replace('/(tabs)');
+      // Onboarding done — let them into the app based on their role
+      if (profile?.role === 'business') {
+        if (!inBusinessTabs) router.replace('/(business-tabs)' as any);
+      } else {
+        if (!inTabs) router.replace('/(tabs)');
+      }
     }
-  }, [loading, onboardingChecked, onboardingComplete, segments]);
+  }, [loading, onboardingChecked, onboardingComplete, segments, profile]);
 
   return null;
 }
@@ -68,6 +73,7 @@ function RootLayout() {
         <NavigationGuard />
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="(business-tabs)" />
           <Stack.Screen name="modal" options={{ presentation: 'modal', headerShown: true }} />
           <Stack.Screen
             name="categories-sheet"

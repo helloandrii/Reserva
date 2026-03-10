@@ -13,6 +13,8 @@ export interface UserProfile {
     email: string | null;
     photoURL: string | null;
     phoneNumber: string | null;
+    /** 'user' for normal consumers, 'business' for service providers */
+    role?: 'user' | 'business';
     /** Number of services the user has bookings for */
     usedServicesCount: number;
     /** IDs of services the user has saved/favourited */

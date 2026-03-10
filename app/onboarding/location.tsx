@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -43,11 +44,15 @@ export default function LocationScreen() {
         setStatus('requesting');
         const { status: permStatus } = await Location.requestForegroundPermissionsAsync();
         setStatus(permStatus === 'granted' ? 'granted' : 'denied');
-        // Proceed to auth after a short beat
-        setTimeout(() => router.push('/onboarding/auth'), 600);
+        // Allow location prompt to show before moving forward
+        setTimeout(async () => {
+            await AsyncStorage.setItem('reserva_intended_role', 'user');
+            router.push('/onboarding/auth')
+        }, 600);
     };
 
-    const handleSkip = () => {
+    const handleSkip = async () => {
+        await AsyncStorage.setItem('reserva_intended_role', 'user');
         router.push('/onboarding/auth');
     };
 

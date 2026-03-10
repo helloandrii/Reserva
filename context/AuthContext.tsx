@@ -32,6 +32,7 @@ interface AuthContextValue {
     promptGoogleSignIn: () => Promise<void>;
     signOut: () => Promise<void>;
     completeOnboarding: () => Promise<void>;
+    skipAuthDev: () => Promise<void>;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -124,18 +125,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             let resolvedProfile: UserProfile;
 
             if (!snap.exists()) {
+                const intendedRole = await AsyncStorage.getItem('reserva_intended_role');
                 resolvedProfile = {
                     uid: firebaseUser.uid,
                     displayName: firebaseUser.displayName ?? 'User',
                     email: firebaseUser.email,
                     photoURL: firebaseUser.photoURL,
                     phoneNumber: null,
+                    role: intendedRole === 'business' ? 'business' : 'user',
                     usedServicesCount: 0,
                     savedServiceIds: [],
                     createdAt: null,
                     updatedAt: null,
                 };
                 await setDoc(ref, { ...resolvedProfile, createdAt: serverTimestamp() });
+                await AsyncStorage.removeItem('reserva_intended_role'); // Clean up
             } else {
                 const data = snap.data();
                 resolvedProfile = {
@@ -144,6 +148,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     email: data.email ?? firebaseUser.email,
                     photoURL: data.photoURL ?? firebaseUser.photoURL,
                     phoneNumber: data.phoneNumber ?? null,
+                    role: data.role ?? 'user',
                     usedServicesCount: data.usedServicesCount ?? 0,
                     savedServiceIds: data.savedServiceIds ?? [],
                     createdAt: data.createdAt ?? null,
@@ -174,8 +179,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setOnboardingComplete(true); // update state immediately so guard reacts
     };
 
+    const skipAuthDev = async () => {
+        const intendedRole = await AsyncStorage.getItem('reserva_intended_role');
+        const mockProfile: UserProfile = {
+            uid: 'dev-mock-uid',
+            displayName: 'Dev User',
+            email: 'dev@reserva.app',
+            photoURL: null,
+            phoneNumber: null,
+            role: intendedRole === 'business' ? 'business' : 'user',
+            usedServicesCount: 0,
+            savedServiceIds: [],
+            createdAt: null,
+            updatedAt: null,
+        };
+        setProfile(mockProfile);
+        await completeOnboarding();
+    };
+
     return (
-        <AuthContext.Provider value={{ user, profile, loading, onboardingComplete, onboardingChecked, promptGoogleSignIn, signOut, completeOnboarding }}>
+        <AuthContext.Provider value={{ user, profile, loading, onboardingComplete, onboardingChecked, promptGoogleSignIn, signOut, completeOnboarding, skipAuthDev }}>
             {children}
         </AuthContext.Provider>
     );

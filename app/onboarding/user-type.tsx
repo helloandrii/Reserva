@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
@@ -58,7 +59,10 @@ export default function UserTypeScreen() {
                     <TouchableOpacity
                         style={[styles.businessCard, { backgroundColor: C.surface, borderColor: C.border }]}
                         activeOpacity={0.85}
-                        onPress={() => router.push('/onboarding/business')}
+                        onPress={async () => {
+                            await AsyncStorage.setItem('reserva_intended_role', 'business');
+                            router.push('/onboarding/auth');
+                        }}
                     >
                         <View style={styles.businessCardInner}>
                             <View style={[styles.businessIcon, { backgroundColor: C.backgroundTertiary }]}>

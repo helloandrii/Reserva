@@ -21,7 +21,7 @@ export default function AuthScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const C = useThemeColors();
-    const { promptGoogleSignIn, completeOnboarding } = useAuth();
+    const { promptGoogleSignIn, skipAuthDev } = useAuth();
     const [signingIn, setSigningIn] = useState<'google' | 'apple' | null>(null);
     const [error, setError] = useState<string | null>(null);
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -50,8 +50,7 @@ export default function AuthScreen() {
 
     // TODO: remove before release
     const handleSkip = async () => {
-        await completeOnboarding();
-        router.replace('/(tabs)');
+        await skipAuthDev();
     };
 
     return (

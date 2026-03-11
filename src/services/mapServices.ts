@@ -8,6 +8,7 @@ export interface MapPoint {
     reviews: number;
     latitude: number;
     longitude: number;
+    businessId: string;
 }
 
 export async function fetchMapPoints(
@@ -46,6 +47,7 @@ export async function fetchMapPoints(
             reviews: d.reviewCount || d.reviews || 0,
             latitude: d.location.latitude,
             longitude: d.location.longitude,
+            businessId: d.business_id || d.businessId,
         }));
 }
 
@@ -61,5 +63,6 @@ export async function getServiceDetails(id: string): Promise<MapPoint | null> {
         reviews: data.reviewCount || data.reviews || 0,
         latitude: data.location?.latitude || 0,
         longitude: data.location?.longitude || 0,
+        businessId: data.business_id || data.businessId,
     };
 }

@@ -15,32 +15,42 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-// ... (imports remain)
+import * as ImagePicker from 'expo-image-picker';
+import { Image } from 'expo-image';
+import { decode } from 'base64-arraybuffer';
+
 import { Palette, Radius, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/utils/supabase';
 
-// ... (Service interface and BusinessServicesScreen setup remain exactly the same)
 interface Service {
   id: string;
   name: string;
   price: number;
   description: string;
+  photo_urls: string[] | null;
 }
 
 export default function BusinessServicesScreen() {
   const C = useThemeColors();
   const { user } = useAuth();
+  
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Form bounds
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  
+  // Local base64 to display prior to save
+  const [localImageBase64, setLocalImageBase64] = useState<string | null>(null);
 
   const fetchServices = async () => {
     if (!user) return;
@@ -65,58 +75,169 @@ export default function BusinessServicesScreen() {
     fetchServices();
   }, [user]);
 
+  const openAddModal = () => {
+    setEditingId(null);
+    setName('');
+    setPrice('');
+    setDescription('');
+    setPhotoUrl(null);
+    setLocalImageBase64(null);
+    setModalVisible(true);
+  };
+
+  const openEditModal = (service: Service) => {
+    setEditingId(service.id);
+    setName(service.name);
+    setPrice(service.price.toString());
+    setDescription(service.description || '');
+    setPhotoUrl(service.photo_urls?.[0] || null);
+    setLocalImageBase64(null);
+    setModalVisible(true);
+  };
+
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      quality: 0.5,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets[0].base64) {
+      setLocalImageBase64(result.assets[0].base64);
+    }
+  };
+
+  const uploadImageObj = async (): Promise<string | null> => {
+    if (!localImageBase64) return photoUrl; // keep existing if no new one
+    
+    try {
+      const ext = 'jpeg'; // assuming high 0.5 compression comes out standard
+      const fileName = `${Date.now()}.${ext}`;
+      const filePath = `${user?.id}/${fileName}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('services')
+        .upload(filePath, decode(localImageBase64), { contentType: `image/${ext}` });
+        
+      if (uploadError) throw uploadError;
+
+      const { data: publicData } = supabase.storage
+        .from('services')
+        .getPublicUrl(filePath);
+
+      return publicData.publicUrl;
+    } catch (err) {
+      console.error('Image upload failed', err);
+      // Fail silently and return prior if error to avoid entire form crashing
+      return photoUrl; 
+    }
+  };
+
   const handleSave = async () => {
     if (!name.trim() || !price) {
       Alert.alert('Missing Fields', 'Please enter a name and a price for the service.');
       return;
     }
-    if (!user) {
-      Alert.alert('Auth Error', 'Could not find your business ID. Try logging out and back in again.');
-      return;
-    }
+    if (!user) return;
     
     setSaving(true);
     try {
-      const newService = {
+      const finalPhotoUrl = await uploadImageObj();
+      
+      const payload = {
         business_id: user.id,
         name: name.trim(),
         price: parseFloat(price.trim()),
         description: description.trim(),
+        photo_urls: finalPhotoUrl ? [finalPhotoUrl] : [],
       };
 
-      console.log('Inserting new service:', newService);
-      const { data, error } = await supabase.from('services').insert([newService]).select();
-      
-      console.log('Insert response:', { data, error });
-      if (error) throw error;
+      if (editingId) {
+        const { error } = await supabase
+          .from('services')
+          .update(payload)
+          .eq('id', editingId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('services')
+          .insert([payload]);
+        if (error) throw error;
+      }
 
       setModalVisible(false);
-      setName('');
-      setPrice('');
-      setDescription('');
       fetchServices();
     } catch (err: any) {
       console.error('Save failed:', err);
-      Alert.alert('Save Failed', err?.message || JSON.stringify(err) || 'Unknown error occurred.');
+      Alert.alert('Save Failed', err?.message || 'Unknown error occurred.');
     } finally {
       setSaving(false);
     }
   };
 
+  const handleDelete = async () => {
+    if (!editingId) return;
+    
+    Alert.alert("Delete Service", "Are you sure you want to permanently delete this service?", [
+      { text: "Cancel", style: "cancel" },
+      { 
+        text: "Delete", 
+        style: "destructive",
+        onPress: async () => {
+          setDeleting(true);
+          try {
+            const { error } = await supabase
+              .from('services')
+              .delete()
+              .eq('id', editingId);
+              
+            if (error) throw error;
+            setModalVisible(false);
+            fetchServices();
+          } catch (err: any) {
+            console.error('Delete failed:', err);
+            Alert.alert("Error", "Could not delete service.");
+          } finally {
+            setDeleting(false);
+          }
+        }
+      }
+    ]);
+  };
+
+  const currentDisplayImage = localImageBase64 
+    ? `data:image/jpeg;base64,${localImageBase64}` 
+    : photoUrl;
+
   const renderServiceItem = ({ item }: { item: Service }) => (
-    <View style={[styles.serviceCard, { backgroundColor: C.surface, borderColor: C.border }]}>
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.serviceName, { color: C.text }]}>{item.name}</Text>
-        {item.description ? (
-          <Text style={[styles.serviceDesc, { color: C.textSecondary }]} numberOfLines={2}>
-            {item.description}
-          </Text>
-        ) : null}
+    <TouchableOpacity 
+      style={[styles.serviceCard, { backgroundColor: C.surface, borderColor: C.border }]}
+      onPress={() => openEditModal(item)}
+      activeOpacity={0.8}
+    >
+      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+        {item.photo_urls?.[0] ? (
+          <Image source={item.photo_urls[0]} style={styles.cardImage} />
+        ) : (
+          <View style={[styles.cardImagePlaceholder, { backgroundColor: C.backgroundSecondary }]}>
+            <Ionicons name="image-outline" size={24} color={C.textTertiary} />
+          </View>
+        )}
+        <View style={{ flex: 1, marginLeft: Spacing.md }}>
+          <Text style={[styles.serviceName, { color: C.text }]}>{item.name}</Text>
+          {item.description ? (
+            <Text style={[styles.serviceDesc, { color: C.textSecondary }]} numberOfLines={2}>
+              {item.description}
+            </Text>
+          ) : null}
+        </View>
       </View>
       <View style={[styles.priceTag, { backgroundColor: Palette.accentLight }]}>
         <Text style={[styles.priceText, { color: Palette.accentDark }]}>${item.price}</Text>
       </View>
-    </View>
+      <Ionicons name="chevron-forward" size={20} color={C.textTertiary} style={{ marginLeft: 8 }} />
+    </TouchableOpacity>
   );
 
   return (
@@ -125,7 +246,7 @@ export default function BusinessServicesScreen() {
         <Text style={[styles.headerTitle, { color: C.text }]}>Services</Text>
         <TouchableOpacity
           style={[styles.addButton, { backgroundColor: Palette.accent }]}
-          onPress={() => setModalVisible(true)}
+          onPress={openAddModal}
           activeOpacity={0.8}
         >
           <Ionicons name="add" size={20} color="#fff" />
@@ -152,7 +273,7 @@ export default function BusinessServicesScreen() {
         />
       )}
 
-      {/* Add Modal */}
+      {/* Add / Edit Modal */}
       <Modal visible={modalVisible} transparent animationType="slide">
         <KeyboardAvoidingView 
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -161,8 +282,8 @@ export default function BusinessServicesScreen() {
           <View style={[styles.modalOverlayBg, { backgroundColor: 'rgba(0,0,0,0.5)' }]} />
           <View style={[styles.modalContent, { backgroundColor: C.backgroundSecondary }]}>
             <View style={[styles.modalHeader, { borderBottomColor: C.border }]}>
-              <Text style={[styles.modalTitle, { color: C.text }]}>Add Service</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
+              <Text style={[styles.modalTitle, { color: C.text }]}>{editingId ? 'Edit Service' : 'Add Service'}</Text>
+              <TouchableOpacity onPress={() => setModalVisible(false)} disabled={saving || deleting}>
                 <Ionicons name="close" size={24} color={C.text} />
               </TouchableOpacity>
             </View>
@@ -172,6 +293,24 @@ export default function BusinessServicesScreen() {
               contentContainerStyle={styles.modalBody}
               keyboardShouldPersistTaps="handled"
             >
+              <View style={styles.imagePickerWrap}>
+                <TouchableOpacity style={styles.imagePickerBtn} onPress={pickImage} activeOpacity={0.8}>
+                  {currentDisplayImage ? (
+                    <Image source={currentDisplayImage} style={styles.pickedImage} />
+                  ) : (
+                    <View style={[styles.imagePlaceholder, { backgroundColor: C.surface, borderColor: C.border }]}>
+                      <Ionicons name="camera" size={32} color={C.textTertiary} />
+                      <Text style={[styles.imagePlaceholderText, { color: C.textSecondary }]}>Add Photo</Text>
+                    </View>
+                  )}
+                  {currentDisplayImage && (
+                    <View style={styles.editImageBadge}>
+                      <Ionicons name="pencil" size={14} color="#FFF" />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
+
               <Text style={[styles.label, { color: C.text }]}>Service Name *</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: C.surface, color: C.text, borderColor: C.border }]}
@@ -202,17 +341,29 @@ export default function BusinessServicesScreen() {
                 onChangeText={setDescription}
               />
 
-              <TouchableOpacity
-                style={[styles.saveButton, { backgroundColor: Palette.accent }, saving && { opacity: 0.6 }]}
-                onPress={handleSave}
-                disabled={saving}
-              >
-                {saving ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.saveText}>Save Service</Text>
+              <View style={{ flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.md }}>
+                {editingId && (
+                  <TouchableOpacity
+                    style={[styles.saveButton, { flex: 0.3, backgroundColor: Palette.error, paddingHorizontal: 0 }, deleting && { opacity: 0.6 }]}
+                    onPress={handleDelete}
+                    disabled={saving || deleting}
+                  >
+                    {deleting ? <ActivityIndicator color="#fff" /> : <Ionicons name="trash" size={20} color="#fff" />}
+                  </TouchableOpacity>
                 )}
-              </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[styles.saveButton, { flex: 1, backgroundColor: Palette.accent }, saving && { opacity: 0.6 }]}
+                  onPress={handleSave}
+                  disabled={saving || deleting}
+                >
+                  {saving ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.saveText}>{editingId ? 'Save Changes' : 'Create Service'}</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
@@ -269,10 +420,22 @@ const styles = StyleSheet.create({
   serviceCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: Spacing.lg,
+    padding: Spacing.md,
     borderRadius: Radius.lg,
     borderWidth: 1,
     marginBottom: Spacing.md,
+  },
+  cardImage: {
+    width: 50,
+    height: 50,
+    borderRadius: Radius.md,
+  },
+  cardImagePlaceholder: {
+    width: 50,
+    height: 50,
+    borderRadius: Radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   serviceName: {
     fontSize: Typography.size.md,
@@ -307,6 +470,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: Radius['2xl'],
     borderTopRightRadius: Radius['2xl'],
     paddingBottom: Spacing['4xl'], // safety margin
+    maxHeight: '90%',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -322,6 +486,48 @@ const styles = StyleSheet.create({
   },
   modalBody: {
     padding: Spacing.xl,
+  },
+  imagePickerWrap: {
+    alignItems: 'center',
+    marginBottom: Spacing.xl,
+  },
+  imagePickerBtn: {
+    width: 120,
+    height: 120,
+    borderRadius: Radius.lg,
+    overflow: 'visible',
+  },
+  pickedImage: {
+    width: 120,
+    height: 120,
+    borderRadius: Radius.lg,
+  },
+  imagePlaceholder: {
+    width: 120,
+    height: 120,
+    borderRadius: Radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderStyle: 'dashed',
+  },
+  imagePlaceholderText: {
+    fontSize: Typography.size.sm,
+    fontWeight: '500',
+    marginTop: Spacing.xs,
+  },
+  editImageBadge: {
+    position: 'absolute',
+    bottom: -8,
+    right: -8,
+    backgroundColor: Palette.accent,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFF',
   },
   label: {
     fontSize: Typography.size.sm,
@@ -345,7 +551,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: Spacing.md,
+    paddingHorizontal: Spacing.xl,
   },
   saveText: {
     color: '#fff',

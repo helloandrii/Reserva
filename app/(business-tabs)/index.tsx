@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState, useCallback } from 'react';
+import { ActivityIndicator, StyleSheet, Text, View, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Colors, Spacing, Typography } from '@/constants/theme';
@@ -16,76 +16,87 @@ interface DashboardStats {
 export default function BusinessDashboardScreen() {
   const C = useThemeColors();
   const { user } = useAuth();
+  
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState<DashboardStats>({
     todayCount: 0,
     weekCount: 0,
     nextBooking: null,
   });
 
-  useEffect(() => {
-    async function fetchStats() {
-      if (!user) return;
-      try {
-        const now = new Date();
-        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
+  const fetchStats = useCallback(async () => {
+    if (!user) return;
+    try {
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
 
-        const startOfWeek = new Date(startOfDay);
-        startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
-        const endOfWeek = new Date(startOfWeek.getTime() + 7 * 24 * 60 * 60 * 1000);
+      const startOfWeek = new Date(startOfDay);
+      startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+      const endOfWeek = new Date(startOfWeek.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-        // Fetch Today's
-        const { count: todayCount, error: todayErr } = await supabase
-          .from('bookings')
-          .select('*', { count: 'exact', head: true })
-          .eq('business_id', user.id)
-          .gte('booking_date', startOfDay.toISOString())
-          .lt('booking_date', endOfDay.toISOString());
+      const { count: todayCount } = await supabase
+        .from('bookings')
+        .select('*', { count: 'exact', head: true })
+        .eq('business_id', user.id)
+        .gte('booking_date', startOfDay.toISOString())
+        .lt('booking_date', endOfDay.toISOString());
 
-        // Fetch Week's
-        const { count: weekCount, error: weekErr } = await supabase
-          .from('bookings')
-          .select('*', { count: 'exact', head: true })
-          .eq('business_id', user.id)
-          .gte('booking_date', startOfWeek.toISOString())
-          .lt('booking_date', endOfWeek.toISOString());
+      const { count: weekCount } = await supabase
+        .from('bookings')
+        .select('*', { count: 'exact', head: true })
+        .eq('business_id', user.id)
+        .gte('booking_date', startOfWeek.toISOString())
+        .lt('booking_date', endOfWeek.toISOString());
 
-        // Fetch Next Up
-        const { data: nextData, error: nextErr } = await supabase
-          .from('bookings')
-          .select('*, services(name)')
-          .eq('business_id', user.id)
-          .gte('booking_date', now.toISOString())
-          .order('booking_date', { ascending: true })
-          .limit(1)
-          .single();
+      const { data: nextData } = await supabase
+        .from('bookings')
+        .select('*, services(name)')
+        .eq('business_id', user.id)
+        .gte('booking_date', now.toISOString())
+        .order('booking_date', { ascending: true })
+        .limit(1)
+        .single();
 
-        setStats({
-          todayCount: todayCount || 0,
-          weekCount: weekCount || 0,
-          nextBooking: nextData || null,
-        });
-      } catch (err) {
-        console.error('Error fetching stats:', err);
-      } finally {
-        setLoading(false);
-      }
+      setStats({
+        todayCount: todayCount || 0,
+        weekCount: weekCount || 0,
+        nextBooking: nextData || null,
+      });
+    } catch (err) {
+      console.error('Error fetching stats:', err);
+    } finally {
+      setLoading(false);
     }
-
-    fetchStats();
   }, [user]);
+
+  useEffect(() => {
+      setLoading(true);
+      fetchStats();
+  }, [fetchStats]);
+
+  const onRefresh = useCallback(async () => {
+      setRefreshing(true);
+      await fetchStats();
+      setRefreshing(false);
+  }, [fetchStats]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: C.background }]}>
       <Text style={[styles.header, { color: C.text }]}>Dashboard</Text>
 
-      {loading ? (
+      {loading && !refreshing ? (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator size="large" color={C.text} />
         </View>
       ) : (
-        <>
+        <ScrollView 
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.text} />
+            }
+        >
           <View style={styles.grid}>
             <View style={[styles.card, { backgroundColor: C.surface, borderColor: C.border }]}>
               <Text style={[styles.cardTitle, { color: C.text }]}>Today's Bookings</Text>
@@ -113,7 +124,7 @@ export default function BusinessDashboardScreen() {
               <Text style={[styles.cardSubtitle, { color: C.textSecondary }]}>No upcoming bookings</Text>
             )}
           </View>
-        </>
+        </ScrollView>
       )}
     </SafeAreaView>
   );

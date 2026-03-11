@@ -166,7 +166,7 @@ export default function MapScreen() {
                 showsUserLocation={hasLocation === true}
                 showsMyLocationButton={false}
                 showsCompass={true}
-                mapPadding={{ top: insets.top + 50, right: 10, bottom: 0, left: 0 }}
+                mapPadding={{ top: insets.top + 50, right: Spacing.lg, bottom: 0, left: 0 }}
                 region={mapRegion}
                 mapType={mapType}
                 onPress={() => {
@@ -404,7 +404,7 @@ const styles = StyleSheet.create({
     locationFabWrap: {
         position: 'absolute',
         right: Spacing.lg,
-        width: 44,
+        width: 40,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.15,
@@ -412,16 +412,16 @@ const styles = StyleSheet.create({
         elevation: 6,
     },
     fabGlass: {
-        borderRadius: 22,
+        borderRadius: 20,
         overflow: 'hidden',
     },
     fabFallback: {
-        borderRadius: 22,
+        borderRadius: 20,
         overflow: 'hidden',
     },
     fabInner: {
-        width: 44,
-        height: 44,
+        width: 40,
+        height: 40,
         alignItems: 'center',
         justifyContent: 'center',
     },

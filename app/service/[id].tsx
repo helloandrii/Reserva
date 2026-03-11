@@ -4,6 +4,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    Alert,
+    Modal,
     Image,
     Platform,
     ScrollView,
@@ -17,6 +19,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MapPoint, getServiceDetails } from '@/src/services/mapServices';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/utils/supabase';
 import { Palette, Radius, Spacing, Typography } from '@/constants/theme';
 
 export default function ServiceDetailsScreen() {
@@ -28,6 +32,56 @@ export default function ServiceDetailsScreen() {
 
     const [service, setService] = useState<MapPoint | null>(null);
     const [loading, setLoading] = useState(true);
+
+    const { user } = useAuth();
+    const [bookingModalVisible, setBookingModalVisible] = useState(false);
+    const [selectedDate, setSelectedDate] = useState<'today' | 'tomorrow'>('today');
+    const [selectedTime, setSelectedTime] = useState<string | null>(null);
+    const [bookingInProgress, setBookingInProgress] = useState(false);
+
+    const TIME_SLOTS = ['09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00'];
+
+    const handleBook = async () => {
+        if (!user) {
+            Alert.alert('Sign In Required', 'Please sign in to book a service.');
+            // Ideally navigate to profile/auth tab, but simple alert for now
+            return;
+        }
+        if (!selectedTime) {
+            Alert.alert('Select Time', 'Please select a time slot to continue.');
+            return;
+        }
+        if (!service) return;
+
+        setBookingInProgress(true);
+        try {
+            // Calculate actual date
+            const bookingDate = new Date();
+            if (selectedDate === 'tomorrow') {
+                bookingDate.setDate(bookingDate.getDate() + 1);
+            }
+            const [hours, minutes] = selectedTime.split(':');
+            bookingDate.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+
+            const { error } = await supabase.from('bookings').insert({
+                user_id: user.id,
+                business_id: service.businessId,
+                service_id: service.id,
+                booking_date: bookingDate.toISOString(),
+                status: 'upcoming'
+            });
+
+            if (error) throw error;
+
+            Alert.alert('Success', 'Your booking has been confirmed!');
+            setBookingModalVisible(false);
+        } catch (error) {
+            console.error('Booking failed:', error);
+            Alert.alert('Error', 'Failed to create booking. Please try again.');
+        } finally {
+            setBookingInProgress(false);
+        }
+    };
 
     useEffect(() => {
         if (!id) return;
@@ -157,11 +211,110 @@ export default function ServiceDetailsScreen() {
                         <Text style={[styles.priceEstimate, { color: C.textSecondary }]}>Average Price</Text>
                         <Text style={[styles.totalPrice, { color: C.text }]}>€65.00</Text>
                     </View>
-                    <TouchableOpacity style={styles.bookButton} activeOpacity={0.8}>
+                    <TouchableOpacity 
+                        style={styles.bookButton} 
+                        activeOpacity={0.8}
+                        onPress={() => setBookingModalVisible(true)}
+                    >
                         <Text style={styles.bookButtonText}>Book Now</Text>
                     </TouchableOpacity>
                 </View>
             </View>
+
+            {/* ── Booking Modal ── */}
+            <Modal
+                visible={bookingModalVisible}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={() => setBookingModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <TouchableOpacity 
+                        style={StyleSheet.absoluteFill} 
+                        activeOpacity={1} 
+                        onPress={() => setBookingModalVisible(false)} 
+                    />
+                    <View style={[styles.modalContent, { backgroundColor: C.backgroundSecondary }]}>
+                        <View style={styles.modalHeader}>
+                            <Text style={[styles.modalTitle, { color: C.text }]}>Book Appointment</Text>
+                            <TouchableOpacity onPress={() => setBookingModalVisible(false)}>
+                                <Ionicons name="close" size={24} color={C.text} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <Text style={[styles.modalSubtitle, { color: C.textSecondary }]}>
+                            {service.title} - {service.category}
+                        </Text>
+
+                        {/* Date Selection */}
+                        <Text style={[styles.sectionTitleModal, { color: C.text }]}>Select Day</Text>
+                        <View style={styles.dateRow}>
+                            <TouchableOpacity 
+                                style={[
+                                    styles.dateChip, 
+                                    { backgroundColor: C.surface, borderColor: C.border },
+                                    selectedDate === 'today' && styles.dateChipActive
+                                ]}
+                                onPress={() => setSelectedDate('today')}
+                            >
+                                <Text style={[
+                                    styles.dateChipText, 
+                                    { color: selectedDate === 'today' ? '#FFF' : C.text }
+                                ]}>Today</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                                style={[
+                                    styles.dateChip, 
+                                    { backgroundColor: C.surface, borderColor: C.border },
+                                    selectedDate === 'tomorrow' && styles.dateChipActive
+                                ]}
+                                onPress={() => setSelectedDate('tomorrow')}
+                            >
+                                <Text style={[
+                                    styles.dateChipText, 
+                                    { color: selectedDate === 'tomorrow' ? '#FFF' : C.text }
+                                ]}>Tomorrow</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Time Selection */}
+                        <Text style={[styles.sectionTitleModal, { color: C.text, marginTop: Spacing.xl }]}>Select Time</Text>
+                        <View style={styles.timeGrid}>
+                            {TIME_SLOTS.map(time => (
+                                <TouchableOpacity 
+                                    key={time}
+                                    style={[
+                                        styles.timeChip,
+                                        { backgroundColor: C.surface, borderColor: C.border },
+                                        selectedTime === time && styles.timeChipActive
+                                    ]}
+                                    onPress={() => setSelectedTime(time)}
+                                >
+                                    <Text style={[
+                                        styles.timeChipText,
+                                        { color: selectedTime === time ? '#FFF' : C.text }
+                                    ]}>{time}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+
+                        <TouchableOpacity 
+                            style={[
+                                styles.confirmBookButton, 
+                                bookingInProgress && { opacity: 0.7 }
+                            ]} 
+                            onPress={handleBook}
+                            disabled={bookingInProgress}
+                        >
+                            {bookingInProgress ? (
+                                <ActivityIndicator color="#FFF" />
+                            ) : (
+                                <Text style={styles.confirmBookText}>Confirm Booking</Text>
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -311,6 +464,89 @@ const styles = StyleSheet.create({
         borderRadius: Radius.full,
     },
     bookButtonText: {
+        color: '#FFF',
+        fontSize: Typography.size.body,
+        fontWeight: Typography.weight.bold,
+    },
+    // Modal Styles
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        padding: Spacing.xl,
+        paddingBottom: Platform.OS === 'ios' ? 40 : Spacing.xl,
+        minHeight: 400,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: Spacing.xs,
+    },
+    modalTitle: {
+        fontSize: Typography.size.xl,
+        fontWeight: Typography.weight.bold,
+    },
+    modalSubtitle: {
+        fontSize: Typography.size.body,
+        marginBottom: Spacing.xl,
+    },
+    sectionTitleModal: {
+        fontSize: Typography.size.lg,
+        fontWeight: Typography.weight.semibold,
+        marginBottom: Spacing.md,
+    },
+    dateRow: {
+        flexDirection: 'row',
+        gap: Spacing.md,
+    },
+    dateChip: {
+        flex: 1,
+        paddingVertical: 12,
+        alignItems: 'center',
+        borderRadius: Radius.lg,
+        borderWidth: 1,
+    },
+    dateChipActive: {
+        backgroundColor: Palette.accent,
+        borderColor: Palette.accent,
+    },
+    dateChipText: {
+        fontSize: Typography.size.body,
+        fontWeight: Typography.weight.medium,
+    },
+    timeGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: Spacing.md,
+    },
+    timeChip: {
+        width: '30%',
+        paddingVertical: 12,
+        alignItems: 'center',
+        borderRadius: Radius.lg,
+        borderWidth: 1,
+    },
+    timeChipActive: {
+        backgroundColor: Palette.accent,
+        borderColor: Palette.accent,
+    },
+    timeChipText: {
+        fontSize: Typography.size.body,
+        fontWeight: Typography.weight.medium,
+    },
+    confirmBookButton: {
+        backgroundColor: Palette.accent,
+        paddingVertical: 16,
+        borderRadius: Radius.full,
+        alignItems: 'center',
+        marginTop: Spacing['3xl'],
+    },
+    confirmBookText: {
         color: '#FFF',
         fontSize: Typography.size.body,
         fontWeight: Typography.weight.bold,

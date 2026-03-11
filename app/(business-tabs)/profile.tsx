@@ -1,11 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View, Dimensions } from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View, TextInput, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
-import { Strings } from '@/constants/strings';
+import * as ImagePicker from 'expo-image-picker';
+import { Image } from 'expo-image';
+import { decode } from 'base64-arraybuffer';
 
-import { Colors, Palette, Radius, Spacing, Typography } from '@/constants/theme';
+import { Strings } from '@/constants/strings';
+import { Palette, Radius, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/utils/supabase';
@@ -30,16 +33,23 @@ export default function BusinessProfileScreen() {
   const [hours, setHours] = useState<WorkingHours>(DEFAULT_HOURS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
   
   const [modalVisible, setModalVisible] = useState(false);
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const [editHours, setEditHours] = useState<WorkingHours>(DEFAULT_HOURS);
   
+  // Profile Data
   const [category, setCategory] = useState<string>('');
   const [location, setLocation] = useState<{ latitude: number, longitude: number } | null>(null);
+  const [addressDetails, setAddressDetails] = useState('');
+  const [isActive, setIsActive] = useState(true);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   
+  // Form Edits
   const [editCategory, setEditCategory] = useState<string>('');
   const [editLocation, setEditLocation] = useState<{ latitude: number, longitude: number } | null>(null);
+  const [editAddressDetails, setEditAddressDetails] = useState('');
 
   const fetchProfile = async () => {
     if (!profile?.id) return;
@@ -54,13 +64,12 @@ export default function BusinessProfileScreen() {
       if (error && error.code !== 'PGRST116') throw error; // ignore row not found
       
       if (data) {
-        if (data.working_hours) {
-          setHours({ ...DEFAULT_HOURS, ...data.working_hours });
-        }
+        if (data.working_hours) setHours({ ...DEFAULT_HOURS, ...data.working_hours });
         setCategory(data.category || '');
-        if (data.location) {
-          setLocation(data.location);
-        }
+        if (data.location) setLocation(data.location);
+        setAddressDetails(data.address_details || '');
+        setIsActive(data.is_active !== false); // Default to true if null/undefined
+        setAvatarUrl(data.avatar_url || null);
       }
     } catch (err) {
       console.error('Failed to fetch business profile', err);
@@ -75,9 +84,95 @@ export default function BusinessProfileScreen() {
 
   const handleOpenEditDetails = () => {
     setEditCategory(category);
-    // Default to some central location if none set
+    setEditAddressDetails(addressDetails);
     setEditLocation(location || { latitude: 48.1486, longitude: 17.1077 }); // Bratislava default
     setDetailsModalVisible(true);
+  };
+
+  const handleToggleActive = async (value: boolean) => {
+    if (!profile?.id) return;
+    setIsActive(value); // Optimistic UI update
+    
+    try {
+      // 1. Update Profile
+      const { error: profileError } = await supabase
+        .from('business_profiles')
+        .update({ is_active: value })
+        .eq('id', profile.id);
+        
+      if (profileError) throw profileError;
+
+      // 2. Cascade update to all services
+      const { error: servicesError } = await supabase
+        .from('services')
+        .update({ is_active: value })
+        .eq('business_id', profile.id);
+
+      if (servicesError) throw servicesError;
+    } catch (err) {
+      console.error('Failed to toggle active status', err);
+      setIsActive(!value); // Revert UI
+      Alert.alert('Error', 'Could not update active status. Try again.');
+    }
+  };
+
+  const pickAndUploadAvatar = async () => {
+    if (!profile?.id) return;
+    
+    // Pick image
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      quality: 0.5,
+      aspect: [1, 1], // square for avatar
+      base64: true,
+    });
+
+    if (result.canceled || !result.assets[0].base64) return;
+    
+    setAvatarUploading(true);
+    try {
+      const base64Data = result.assets[0].base64;
+      const ext = 'jpeg';
+      const fileName = `avatar_${Date.now()}.${ext}`;
+      const filePath = `${profile.id}/${fileName}`;
+      
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, decode(base64Data), { contentType: `image/${ext}`, upsert: true });
+        
+      if (uploadError) {
+        // If the 'avatars' bucket hasn't been created yet, let the user know they need to make sure Storage is set up
+        if (uploadError.message.includes('bucket not found')) {
+           Alert.alert('Storage Error', 'The "avatars" storage bucket does not exist in Supabase.');
+           return;
+        }
+        throw uploadError;
+      }
+
+      // Get public URL
+      const { data: publicData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      const newAvatarUrl = publicData.publicUrl;
+
+      // Update Profile Record
+      const { error: updateError } = await supabase
+        .from('business_profiles')
+        .update({ avatar_url: newAvatarUrl })
+        .eq('id', profile.id);
+        
+      if (updateError) throw updateError;
+      
+      setAvatarUrl(newAvatarUrl);
+    } catch (err) {
+      console.error('Avatar upload failed', err);
+      Alert.alert('Upload Error', 'Could not upload profile picture.');
+    } finally {
+      setAvatarUploading(false);
+    }
   };
 
   const handleSaveHours = async () => {
@@ -110,7 +205,8 @@ export default function BusinessProfileScreen() {
         .upsert({ 
           id: profile.id, 
           category: editCategory, 
-          location: editLocation 
+          location: editLocation,
+          address_details: editAddressDetails.trim()
         });
         
       if (profileError) throw profileError;
@@ -120,7 +216,8 @@ export default function BusinessProfileScreen() {
         .from('services')
         .update({ 
           category: editCategory, 
-          location: editLocation 
+          location: editLocation,
+          address_details: editAddressDetails.trim() // Make sure services table has access if they need distinct mapping
         })
         .eq('business_id', profile.id);
 
@@ -128,6 +225,7 @@ export default function BusinessProfileScreen() {
       
       setCategory(editCategory);
       setLocation(editLocation);
+      setAddressDetails(editAddressDetails.trim());
       setDetailsModalVisible(false);
       Alert.alert('Success', 'Business details updated successfully.');
     } catch (err) {
@@ -145,7 +243,6 @@ export default function BusinessProfileScreen() {
     }));
   };
 
-  // Mock time pickers by cycling hour shifts (for simplicity without extra packages)
   const cycleTime = (day: Day, field: 'open' | 'close') => {
     setEditHours(prev => {
       const current = prev[day][field];
@@ -162,15 +259,50 @@ export default function BusinessProfileScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: C.background }]} edges={['top']}>
       <Text style={[styles.header, { color: C.text }]}>Profile</Text>
       
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: Spacing['4xl'] }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
         {/* Profile Header */}
         <View style={styles.profileHeader}>
-          <View style={[styles.avatarPlaceholder, { backgroundColor: C.surface }]}>
-            <Ionicons name="business" size={40} color={C.textSecondary} />
-          </View>
+          <TouchableOpacity 
+            style={[styles.avatarPlaceholder, { backgroundColor: C.surface, overflow: 'hidden' }]}
+            onPress={pickAndUploadAvatar}
+            disabled={avatarUploading}
+            activeOpacity={0.8}
+          >
+            {avatarUploading ? (
+               <ActivityIndicator color={Palette.accent} />
+            ) : avatarUrl ? (
+               <Image source={avatarUrl} style={{ width: '100%', height: '100%' }} />
+            ) : (
+               <Ionicons name="camera-outline" size={40} color={C.textSecondary} />
+            )}
+            {!avatarUploading && (
+              <View style={styles.avatarEditBadge}>
+                <Ionicons name="pencil" size={12} color="#fff" />
+              </View>
+            )}
+          </TouchableOpacity>
           <View style={styles.profileInfo}>
             <Text style={[styles.name, { color: C.text }]}>{profile?.displayName || 'Business Name'}</Text>
             <Text style={[styles.email, { color: C.textSecondary }]}>{profile?.email}</Text>
+          </View>
+        </View>
+
+        {/* Status Section */}
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, { color: C.text }]}>Status</Text>
+        </View>
+        <View style={[styles.detailsCard, { backgroundColor: C.surface, borderColor: C.border }]}>
+          <View style={[styles.detailRow]}>
+            <View>
+              <Text style={[styles.detailLabel, { color: C.text }]}>Accepting Bookings</Text>
+              <Text style={{ color: C.textSecondary, fontSize: 12, marginTop: 4 }}>Visible to users across the app</Text>
+            </View>
+            <Switch
+              value={isActive}
+              onValueChange={handleToggleActive}
+              trackColor={{ false: '#767577', true: Palette.accentLight }}
+              thumbColor={isActive ? Palette.accent : '#f4f3f4'}
+            />
           </View>
         </View>
 
@@ -187,6 +319,12 @@ export default function BusinessProfileScreen() {
           <View style={[styles.detailRow, { borderBottomColor: C.border, borderBottomWidth: StyleSheet.hairlineWidth }]}>
             <Text style={[styles.detailLabel, { color: C.textSecondary }]}>Category</Text>
             <Text style={[styles.detailValue, { color: C.text }]}>{category || 'Not set'}</Text>
+          </View>
+          <View style={[styles.detailRow, { borderBottomColor: C.border, borderBottomWidth: StyleSheet.hairlineWidth }]}>
+            <Text style={[styles.detailLabel, { color: C.textSecondary }]}>Address Details</Text>
+            <Text style={[styles.detailValue, { color: C.text }]} numberOfLines={1}>
+              {addressDetails || 'Not set'}
+            </Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={[styles.detailLabel, { color: C.textSecondary }]}>Location</Text>
@@ -340,7 +478,16 @@ export default function BusinessProfileScreen() {
                 ))}
               </View>
 
-              <Text style={[styles.fieldLabel, { color: C.textSecondary, marginTop: Spacing.xl }]}>Location (Drag to adjust)</Text>
+              <Text style={[styles.fieldLabel, { color: C.textSecondary, marginTop: Spacing.xl }]}>Address Details</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: C.surface, color: C.text, borderColor: C.border }]}
+                placeholder="e.g. Floor 2, Room 4B"
+                placeholderTextColor={C.textTertiary}
+                value={editAddressDetails}
+                onChangeText={setEditAddressDetails}
+              />
+
+              <Text style={[styles.fieldLabel, { color: C.textSecondary, marginTop: Spacing.xs }]}>Location (Drag to adjust)</Text>
               <View style={[styles.mapContainer, { borderColor: C.border }]}>
                  <MapView
                     provider={PROVIDER_DEFAULT}
@@ -386,8 +533,9 @@ export default function BusinessProfileScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: Spacing.xl },
   header: { fontSize: Typography.size['2xl'], fontWeight: Typography.weight.bold, marginBottom: Spacing.xl, paddingTop: Spacing.lg },
-  profileHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing['2xl'] },
+  profileHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing['xl'] },
   avatarPlaceholder: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center', marginRight: Spacing.lg },
+  avatarEditBadge: { position: 'absolute', bottom: 0, right: 0, backgroundColor: Palette.accent, width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff' },
   profileInfo: { flex: 1 },
   name: { fontSize: Typography.size.title, fontWeight: Typography.weight.bold, marginBottom: Spacing.xs },
   email: { fontSize: Typography.size.body },
@@ -395,7 +543,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: Typography.size.lg, fontWeight: '700' },
   editBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, padding: Spacing.sm },
   editBtnText: { color: Palette.accent, fontWeight: '600' },
-  detailsCard: { borderRadius: Radius.lg, borderWidth: 1, marginBottom: Spacing['2xl'], overflow: 'hidden' },
+  detailsCard: { borderRadius: Radius.lg, borderWidth: 1, marginBottom: Spacing['xl'], overflow: 'hidden' },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', padding: Spacing.lg, alignItems: 'center' },
   detailLabel: { fontSize: Typography.size.body, fontWeight: '500' },
   detailValue: { fontSize: Typography.size.body, fontWeight: '600' },
@@ -418,7 +566,8 @@ const styles = StyleSheet.create({
   categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   categoryLabel: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 100, borderWidth: 1 },
   categoryLabelText: { fontSize: 14, fontWeight: '500' },
-  mapContainer: { height: 250, borderRadius: Radius.lg, overflow: 'hidden', borderWidth: 1, marginTop: Spacing.sm, marginBottom: Spacing.xl },
+  input: { borderWidth: 1, borderRadius: Radius.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, fontSize: Typography.size.md, marginBottom: Spacing.md },
+  mapContainer: { height: 200, borderRadius: Radius.lg, overflow: 'hidden', borderWidth: 1, marginTop: Spacing.xs, marginBottom: Spacing.xl },
   map: { flex: 1 },
   editRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.xl },
   dayToggle: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flex: 1 },

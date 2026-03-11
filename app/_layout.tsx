@@ -30,8 +30,9 @@ function NavigationGuard() {
     const inSettings = segments[0] === 'settings';
     const inTabs = segments[0] === '(tabs)';
     const inBusinessTabs = segments[0] === '(business-tabs)';
+    const inService = segments[0] === 'service'; // Allow Service Detail route
 
-    if (inLegal || inSettings) return;
+    if (inLegal || inSettings || inService) return;
 
     const passedOnboarding = DEV_ALWAYS_SHOW_ONBOARDING
       ? onboardingComplete   // in dev mode: only pass when user explicitly skipped/signed in
